@@ -1,0 +1,51 @@
+{
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "passRate": 100,
+    "avgDuration": 3146,
+    "timestamp": "2026-02-16T08:30:12.504Z"
+  },
+  "results": [
+    {
+      "id": 75,
+      "skill": "moltbook",
+      "query": "在Moltbook上发布一条帖子",
+      "expectedSkill": "moltbook",
+      "response": "[skill:moltbook]\n{\n  \"ok\": false,\n  \"error\": \"Invalid JSON input\",\n  \"message\": \"输入格式错误，请提供有效的JSON\"\n}",
+      "duration": 3569,
+      "timestamp": "2026-02-16T08:30:04.634Z",
+      "success": true,
+      "notes": "实际路由: moltbook"
+    },
+    {
+      "id": 76,
+      "skill": "moltbook",
+      "query": "评论Moltbook的帖子",
+      "expectedSkill": "moltbook",
+      "response": "[skill:moltbook]\n{\n  \"ok\": false,\n  \"error\": \"Invalid JSON input\",\n  \"message\": \"输入格式错误，请提供有效的JSON\"\n}",
+      "duration": 2965,
+      "timestamp": "2026-02-16T08:30:08.601Z",
+      "success": true,
+      "notes": "实际路由: moltbook"
+    },
+    {
+      "id": 77,
+      "skill": "moltbook",
+      "query": "查看我在Moltbook的最新帖子",
+      "expectedSkill": "moltbook",
+      "response": "[skill:moltbook]\n{\n  \"ok\": false,\n  \"error\": \"Invalid JSON input\",\n  \"message\": \"输入格式错误，请提供有效的JSON\"\n}",
+      "duration": 2903,
+      "timestamp": "2026-02-16T08:30:12.504Z",
+      "success": true,
+      "notes": "实际路由: moltbook"
+    }
+  ],
+  "byCategory": {
+    "社交平台": {
+      "total": 3,
+      "passed": 3
+    }
+  }
+}

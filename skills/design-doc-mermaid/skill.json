@@ -1,0 +1,6 @@
+{
+  "name": "design-doc-mermaid",
+  "description": "Generate concise design docs with Mermaid diagrams.",
+  "entry": "index.js",
+  "permissions": []
+}

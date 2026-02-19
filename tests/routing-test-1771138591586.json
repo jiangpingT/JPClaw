@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-02-15T06:56:31.586Z",
+  "total": 3,
+  "passed": 0,
+  "failed": 3,
+  "passRate": 0,
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expected": "web-search",
+      "actual": null,
+      "response": "根据搜索结果，以下是最近的科技新闻要点：\n\n## 📰 主要科技新闻（2025年12月24-25日）\n\n### 🏆 年度科技新闻发布\n- **中央广播电视总台**发布了**2025年度国内、国际十大科技新闻**（12月25日）\n- 多个权威机构同期发布年度科技新闻榜单\n\n### 🔬 重点科技成果\n- **\"祖冲之三号\"量子计算成果**入选两项年度科技新闻榜单（12月24日）\n  - 这是我国在",
+      "duration": 13359,
+      "success": false
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "附近有什么咖啡馆",
+      "expected": "map-poi",
+      "actual": null,
+      "response": "我无法直接获取您的地理位置信息。\n\n要帮您查找附近的咖啡馆，我需要知道您的具体位置。请告诉我：\n\n- **您所在的城市**（如：北京、上海、深圳等）\n- **具体区域或地址**（如：朝阳区三里屯、浦东陆家嘴、某个商圈或街道）\n\n或者，如果您方便的话，可以直接告诉我一个参考位置（比如某个地标、商场、地铁站），这样我可以帮您搜索该区域的咖啡馆信息。",
+      "duration": 8773,
+      "success": false
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expected": "openai-image-gen",
+      "actual": null,
+      "response": "抱歉，图像生成功能需要配置 API key 才能使用。根据错误信息，系统支持以下两种方式：\n\n1. **Gemini API**（主选项）- 需要配置 `GEMINI_API_KEY`\n2. **OpenAI API**（备选）- 需要配置 `OPENAI_API_KEY`\n\n**下一步操作：**\n\n如果你有 Gemini 或 OpenAI 的 API key，我可以帮你配置到环境变量中，然后就能",
+      "duration": 18198,
+      "success": false
+    }
+  ]
+}

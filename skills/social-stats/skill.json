@@ -1,0 +1,6 @@
+{
+  "name": "social-stats",
+  "description": "Extract follower/following/like/comment counts from a social profile page by URL.",
+  "entry": "index.js",
+  "permissions": ["network", "canvas"]
+}

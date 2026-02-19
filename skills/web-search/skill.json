@@ -1,0 +1,6 @@
+{
+  "name": "web-search",
+  "description": "Execute JPClaw web search pipeline and return concise summaries.",
+  "entry": "index.js",
+  "permissions": ["network"]
+}

@@ -1,0 +1,108 @@
+{
+  "description": "泛化能力测试用例 - 验证零样本、语义理解、鲁棒性",
+  "version": "1.0.0",
+
+  "zeroShot": {
+    "setup": "临时添加 stock-query 技能",
+    "tempSkill": {
+      "name": "stock-query",
+      "description": "查询股票实时价格和行情信息，支持A股、美股、港股",
+      "requiredSlots": ["symbol"]
+    },
+    "cases": [
+      { "input": "特斯拉现在多少钱", "expected": "stock-query" },
+      { "input": "帮我查AAPL的股价", "expected": "stock-query" },
+      { "input": "腾讯股票今天涨了吗", "expected": "stock-query" },
+      { "input": "查一下茅台的行情", "expected": "stock-query" }
+    ]
+  },
+
+  "semanticVariation": {
+    "description": "同义词和改写测试",
+    "cases": [
+      { "input": "帮我搜索附近的咖啡店", "expected": "zh-map-amap" },
+      { "input": "找一下周边的咖啡馆", "expected": "zh-map-amap" },
+      { "input": "我想知道这附近哪里有卖咖啡的", "expected": "zh-map-amap" },
+      { "input": "推荐几个nearby的coffee shop", "expected": "zh-map-amap" },
+
+      { "input": "查一下明天的天气", "expected": "weather" },
+      { "input": "明天天气怎么样", "expected": "weather" },
+      { "input": "明天会下雨吗", "expected": "weather" },
+      { "input": "明天气温如何", "expected": "weather" },
+
+      { "input": "搜索人工智能相关信息", "expected": "web-search" },
+      { "input": "查找AI的资料", "expected": "web-search" },
+      { "input": "帮我找一些机器学习的内容", "expected": "web-search" },
+      { "input": "给我看看深度学习的文章", "expected": "web-search" }
+    ]
+  },
+
+  "typoTolerance": {
+    "description": "拼写错误容忍度测试",
+    "cases": [
+      { "input": "帮我搜索北经的咖啡店", "expected": "zh-map-amap", "note": "北经→北京" },
+      { "input": "查一下明填的天气", "expected": "weather", "note": "明填→明天" },
+      { "input": "搜索人工职能", "expected": "web-search", "note": "职能→智能" },
+      { "input": "帮我找咖非店", "expected": "zh-map-amap", "note": "咖非→咖啡" },
+      { "input": "深证明天天气", "expected": "weather", "note": "深证→深圳" }
+    ]
+  },
+
+  "noiseResistance": {
+    "description": "噪声抗性测试",
+    "cases": [
+      { "input": "搜索  北京   咖啡店", "expected": "zh-map-amap", "note": "多余空格" },
+      { "input": "咖啡店，北京，搜索！", "expected": "zh-map-amap", "note": "标点噪声" },
+      { "input": "帮我查查查一下天气", "expected": "weather", "note": "重复字符" },
+      { "input": "...搜索...AI...", "expected": "web-search", "note": "省略号" },
+      { "input": "北京###咖啡店", "expected": "zh-map-amap", "note": "特殊符号" }
+    ]
+  },
+
+  "descriptionOnly": {
+    "description": "仅靠描述路由测试（无额外提示）",
+    "cases": [
+      { "input": "帮我找附近的景点", "expected": "zh-map-amap" },
+      { "input": "这周天气预报", "expected": "weather" },
+      { "input": "搜索最新新闻", "expected": "web-search" },
+      { "input": "推荐一家餐厅", "expected": "zh-map-amap" },
+      { "input": "今天气温多少", "expected": "weather" }
+    ]
+  },
+
+  "scalability": {
+    "description": "可扩展性测试（技能数量对准确率的影响）",
+    "scenarios": [
+      {
+        "skillCount": 10,
+        "testCases": [
+          { "input": "帮我搜索北京的咖啡店", "expected": "zh-map-amap" },
+          { "input": "查一下明天天气", "expected": "weather" },
+          { "input": "搜索AI新闻", "expected": "web-search" },
+          { "input": "人工智能的未来", "expected": null },
+          { "input": "你有什么能力", "expected": null }
+        ]
+      },
+      {
+        "skillCount": 30,
+        "testCases": [
+          { "input": "帮我搜索北京的咖啡店", "expected": "zh-map-amap" },
+          { "input": "查一下明天天气", "expected": "weather" },
+          { "input": "搜索AI新闻", "expected": "web-search" },
+          { "input": "人工智能的未来", "expected": null },
+          { "input": "你有什么能力", "expected": null }
+        ]
+      },
+      {
+        "skillCount": 50,
+        "testCases": [
+          { "input": "帮我搜索北京的咖啡店", "expected": "zh-map-amap" },
+          { "input": "查一下明天天气", "expected": "weather" },
+          { "input": "搜索AI新闻", "expected": "web-search" },
+          { "input": "人工智能的未来", "expected": null },
+          { "input": "你有什么能力", "expected": null }
+        ]
+      }
+    ]
+  }
+}

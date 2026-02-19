@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-02-15T07:29:55.474Z",
+  "total": 5,
+  "passed": 4,
+  "failed": 1,
+  "passRate": 80,
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expected": "web-search",
+      "actual": "web-search",
+      "response": "根据搜索结果，我为你整理了今天（2026年1月27日）能找到的科技新闻：\n\n## 📰 今日科技要闻\n\n### 1️⃣ **欧盟对马斯克的X平台立案调查**\n- **事件**：马斯克旗下的 Grok AI 涉及深度伪造（deepfake）涉黄内容\n- **影响**：欧盟已对 X 平台启动正式调查\n- **日期**：2026-01-27\n\n### 2️⃣ **四川2025十大科技新闻发布**\n- *",
+      "duration": 31889,
+      "success": true
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "北京三里屯附近有什么咖啡馆",
+      "expected": "map-poi",
+      "actual": "map-poi",
+      "response": "抱歉，搜索未能获取到最新的详细信息。不过我可以基于已知信息为您提供一些三里屯区域比较知名的咖啡馆：\n\n**三里屯太古里及周边常见咖啡馆：**\n\n1. **% Arabica**（阿拉比卡）\n   - 位置：三里屯太古里南区\n   - 特点：日系简约风格，拿铁和手冲咖啡口碑好\n\n2. **Soloist Coffee Co.**\n   - 特点：精品咖啡，澳洲风格\n\n3. **Mellower Co",
+      "duration": 20976,
+      "success": true
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expected": "openai-image-gen",
+      "actual": "openai-image-gen",
+      "response": "抱歉，图片生成功能需要配置 API 密钥才能使用。目前系统检测到缺少以下配置：\n\n1. **GEMINI_API_KEY**（主要方案，使用 Gemini 图片生成）\n2. **OPENAI_API_KEY**（备用方案，使用 DALL-E）\n\n你需要：\n1. 获取 Google Gemini API Key 或 OpenAI API Key\n2. 配置到系统环境变量中\n\n如果你有 API Key",
+      "duration": 17590,
+      "success": true
+    },
+    {
+      "id": 4,
+      "skill": "browser-automation",
+      "query": "打开网页 https://github.com 并截图",
+      "expected": "browser-automation",
+      "actual": "browser-automation",
+      "response": "✅ **任务完成！**\n\n已成功打开 https://github.com 并截图。\n\n**截图信息：**\n- 文件名：`github_screenshot.png`\n- 文件大小：2.6 MB\n- 分辨率：1920 × 11075 像素（全页面截图）\n- 位置：当前工作目录\n\n截图已保存完成，你可以查看 `github_screenshot.png` 文件。",
+      "duration": 99979,
+      "success": true
+    },
+    {
+      "id": 5,
+      "skill": "web-scraper",
+      "query": "抓取 https://news.ycombinator.com 的标题",
+      "expected": "web-scraper",
+      "actual": null,
+      "response": "Error: Request timeout (60s)",
+      "duration": 120006,
+      "success": false
+    }
+  ]
+}

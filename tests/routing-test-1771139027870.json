@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-02-15T07:03:47.870Z",
+  "total": 5,
+  "passed": 0,
+  "failed": 5,
+  "passRate": 0,
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expected": "web-search",
+      "actual": null,
+      "response": "抱歉，我注意到连续三次搜索都没能给您提供满意的\"今天\"的实时科技新闻。\n\n## 🔍 当前情况说明\n\n目前使用的搜索引擎（DuckDuckGo）对于**实时科技新闻**的覆盖有限，返回的主要是：\n- 年度盘点类内容\n- 几天前到几周前的新闻\n- 缺少今日最新动态\n\n## 💡 建议方案\n\n**方案1：缩小搜索范围**  \n您可以告诉我关注的具体领域，我可以做更精准的搜索：\n- AI 大模型（如 O",
+      "duration": 28320,
+      "success": false
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "附近有什么咖啡馆",
+      "expected": "map-poi",
+      "actual": null,
+      "response": "我确实无法获取您的位置信息。\n\n如果不方便透露具体位置，您也可以：\n- 直接使用手机地图 APP（如高德地图、百度地图、大众点评）搜索\"咖啡馆\"\n- 或者告诉我您想了解的城市/区域，我可以推荐一些知名咖啡馆\n\n需要其他帮助吗？",
+      "duration": 6362,
+      "success": false
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expected": "openai-image-gen",
+      "actual": null,
+      "response": "我理解你想要生成图片。但目前确实遇到了技术限制：\n\n**核心问题：**\n系统的图像生成功能需要 OpenAI 或 Gemini 的 API key 才能工作，而当前配置文件中这两个 key 都是空的。\n\n**这意味着：**\n- 我无法直接生成图片\n- 这不是技能问题，而是缺少必需的云服务凭证\n\n**可行的解决方案：**\n\n**方案1 - 配置API key（5分钟解决）：**\n1. 访问 http",
+      "duration": 19494,
+      "success": false
+    },
+    {
+      "id": 4,
+      "skill": "browser-automation",
+      "query": "打开网页 https://github.com 并截图",
+      "expected": "browser-automation",
+      "actual": null,
+      "response": "✅ 已完成！GitHub 首页截图已更新。\n\n**截图信息：**\n- 📄 文件：`github_screenshot.png`\n- 📏 尺寸：1920 x 11075 像素（全页面）\n- 💾 大小：2.6MB\n- 🕐 更新时间：刚刚（15:02）\n- 📍 位置：工作区根目录\n\n截图采用了全页面模式，包含了 GitHub 首页从顶部到底部的所有内容。",
+      "duration": 24838,
+      "success": false
+    },
+    {
+      "id": 14,
+      "skill": "github",
+      "query": "查看 JPClaw 项目的最新 PR",
+      "expected": "github",
+      "actual": null,
+      "response": "抱歉，我无法找到 JPClaw 项目的 GitHub 仓库和 PR 信息。\n\n**当前情况：**\n- 本地工作目录不是一个 git 仓库（没有 `.git` 目录）\n- `package.json` 中没有配置 repository 字段\n- 网络搜索未找到 JPClaw 的公开 GitHub 仓库\n- 当前搜索引擎（DuckDuckGo）对私有或内部项目的覆盖有限\n\n**可能的原因：**\n1. ",
+      "duration": 50320,
+      "success": false
+    }
+  ]
+}

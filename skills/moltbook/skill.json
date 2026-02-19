@@ -1,0 +1,9 @@
+{
+  "name": "moltbook",
+  "version": "1.0.0",
+  "description": "Moltbook社交平台集成",
+  "emoji": "🦞",
+  "requires": {
+    "env": ["MOLTBOOK_API_KEY"]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "browser-automation",
+  "description": "Drive Playwright Chromium to open pages, perform actions, extract text, and capture screenshots.",
+  "entry": "index.js",
+  "permissions": ["network", "canvas"]
+}

@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-02-15T08:12:13.146Z",
+  "total": 5,
+  "passed": 3,
+  "failed": 2,
+  "passRate": 60,
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expected": "web-search",
+      "actual": "web-search",
+      "response": "根据搜索结果，以下是今天（2026年1月27日）及近期的主要科技新闻：\n\n## 今日要闻\n**深耕实验室 破界生长 2025四川十大科技新闻闪耀登场**\n- 发布时间：2026-01-27（今天）\n- 四川省发布了2025年度十大科技新闻\n\n## 近期重要科技新闻\n\n**年度科技新闻盘点（2025-12-25）**\n- 中央广播电视总台发布2025年度国内、国际十大科技新闻\n- 2025国际十大科",
+      "duration": 15278,
+      "success": true
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "北京三里屯附近有什么咖啡馆",
+      "expected": "map-poi",
+      "actual": "web-search",
+      "response": "抱歉，当前的搜索工具对本地生活类信息覆盖有限，未能获取到最新的三里屯咖啡馆实时信息。\n\n不过我可以基于已知信息为你提供一些参考（**注意：以下不是实时信息，建议你用手机地图 APP 搜索以获取最新状态**）：\n\n## 三里屯知名咖啡馆参考\n\n**三里屯太古里区域：**\n- **% Arabica**：日本精品咖啡品牌，简约设计，拍照打卡热门\n- **Seesaw Coffee**：国内精品咖啡连锁",
+      "duration": 31687,
+      "success": false
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expected": "openai-image-gen",
+      "actual": "openai-image-gen",
+      "response": "抱歉，图片生成功能需要配置 API Key 才能使用。目前系统尝试了两个图片生成服务但都缺少配置：\n\n1. **Gemini API**（主要）：需要设置 `GEMINI_API_KEY` 环境变量\n2. **OpenAI API**（备用）：需要设置 `OPENAI_API_KEY` 环境变量\n\n您需要先配置其中一个 API Key，我可以帮您配置。请问您有以下哪个服务的 API Key？\n\n-",
+      "duration": 18515,
+      "success": true
+    },
+    {
+      "id": 4,
+      "skill": "browser-automation",
+      "query": "打开网页 https://github.com 并截图",
+      "expected": "browser-automation",
+      "actual": "browser-automation",
+      "response": "✅ **截图完成！**\n\n已成功访问 https://github.com 并保存完整页面截图。\n\n**文件信息：**\n- 文件名：`github_screenshot.png`\n- 大小：2.6MB\n- 位置：当前工作区根目录\n- 截图方式：使用 Chromium 浏览器（1920×1080 视口，完整页面截图）\n\n截图文件已保存到工作区，你现在可以查看或下载这个截图了。",
+      "duration": 51126,
+      "success": true
+    },
+    {
+      "id": 5,
+      "skill": "web-scraper",
+      "query": "抓取 http://www.baidu.com 的内容",
+      "expected": "web-scraper",
+      "actual": null,
+      "response": "✅ 已成功抓取百度首页内容！\n\n**内容概要：**\n- 完整的 HTML 页面结构\n- 包含百度搜索框、导航栏、热搜榜\n- 当前热搜包括：总书记的一周、习近平出席民营企业座谈会、《哪吒2》票房、微信新功能等\n- 页面底部包含版权信息和相关链接\n\n**页面主要元素：**\n1. 顶部导航：新闻、hao123、地图、直播、视频、贴吧、学术等\n2. 百度 Logo 和搜索框\n3. 热搜榜（百度热搜）列表\n",
+      "duration": 21425,
+      "success": false
+    }
+  ]
+}

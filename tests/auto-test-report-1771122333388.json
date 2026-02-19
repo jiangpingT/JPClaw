@@ -1,0 +1,175 @@
+{
+  "summary": {
+    "total": 10,
+    "passed": 0,
+    "failed": 10,
+    "skipped": 0,
+    "passRate": "0.0",
+    "avgDuration": "0",
+    "timestamp": "2026-02-15T02:25:33.388Z"
+  },
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expectedSkill": "web-search",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:28.373Z"
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "附近有什么咖啡馆",
+      "expectedSkill": "map-poi",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:28.876Z"
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expectedSkill": "openai-image-gen",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:29.377Z"
+    },
+    {
+      "id": 4,
+      "skill": "browser-automation",
+      "query": "打开网页 https://github.com 并截图",
+      "expectedSkill": "browser-automation",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:29.879Z"
+    },
+    {
+      "id": 5,
+      "skill": "web-scraper",
+      "query": "抓取 https://news.ycombinator.com 的标题",
+      "expectedSkill": "web-scraper",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:30.380Z"
+    },
+    {
+      "id": 6,
+      "skill": "data-analysis",
+      "query": "分析这个CSV文件的数据",
+      "expectedSkill": "data-analysis",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:30.881Z"
+    },
+    {
+      "id": 7,
+      "skill": "video-frames",
+      "query": "生成一个城市日出的视频",
+      "expectedSkill": "video-frames",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:31.382Z"
+    },
+    {
+      "id": 8,
+      "skill": "email-automation",
+      "query": "草拟一封邮件给客户",
+      "expectedSkill": "email-automation",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:31.884Z"
+    },
+    {
+      "id": 9,
+      "skill": "doc-generation",
+      "query": "生成一份项目报告文档",
+      "expectedSkill": "doc-generation",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:32.385Z"
+    },
+    {
+      "id": 10,
+      "skill": "scheduled-tasks",
+      "query": "创建一个定时任务，每天早上9点运行",
+      "expectedSkill": "scheduled-tasks",
+      "routedSkill": null,
+      "confidence": 0,
+      "matched": false,
+      "reason": "未触发技能路由",
+      "duration": 0,
+      "timestamp": "2026-02-15T02:25:32.886Z"
+    }
+  ],
+  "byCategory": {
+    "搜索与信息": {
+      "total": 1,
+      "passed": 0
+    },
+    "地图与位置": {
+      "total": 1,
+      "passed": 0
+    },
+    "图像生成": {
+      "total": 1,
+      "passed": 0
+    },
+    "浏览器自动化": {
+      "total": 1,
+      "passed": 0
+    },
+    "网页抓取": {
+      "total": 1,
+      "passed": 0
+    },
+    "数据分析": {
+      "total": 1,
+      "passed": 0
+    },
+    "视频生成": {
+      "total": 1,
+      "passed": 0
+    },
+    "邮件管理": {
+      "total": 1,
+      "passed": 0
+    },
+    "文档生成": {
+      "total": 1,
+      "passed": 0
+    },
+    "任务调度": {
+      "total": 1,
+      "passed": 0
+    }
+  }
+}

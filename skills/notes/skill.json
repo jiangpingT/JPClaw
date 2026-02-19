@@ -1,0 +1,6 @@
+{
+  "name": "notes",
+  "description": "Unified notes entry. Route to apple-notes, bear-notes, notion, or obsidian.",
+  "entry": "index.js",
+  "permissions": ["network", "canvas"]
+}

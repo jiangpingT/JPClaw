@@ -1,0 +1,159 @@
+{
+  "description": "正确性测试用例 - 验证意图判定准确率",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "input": "帮我搜索北京的咖啡店",
+      "expected": "map-poi",
+      "type": "positive",
+      "category": "明确需求-地图POI"
+    },
+    {
+      "input": "查一下明天北京的天气",
+      "expected": "weather",
+      "type": "positive",
+      "category": "明确需求-天气"
+    },
+    {
+      "input": "搜索人工智能相关的新闻",
+      "expected": "web-search",
+      "type": "positive",
+      "category": "明确需求-网页搜索"
+    },
+    {
+      "input": "人工智能的未来是什么",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-哲学思考"
+    },
+    {
+      "input": "你有什么技能",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-能力咨询"
+    },
+    {
+      "input": "介绍一下你自己",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-自我介绍"
+    },
+    {
+      "input": "如何创建一个新技能",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-技能开发"
+    },
+    {
+      "input": "讲个笑话",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-娱乐"
+    },
+    {
+      "input": "帮我搜索咖啡店",
+      "expected": "clarify",
+      "type": "clarify",
+      "missingSlots": ["location"],
+      "category": "槽位缺失-缺少地点"
+    },
+    {
+      "input": "查一下天气",
+      "expected": "clarify",
+      "type": "clarify",
+      "missingSlots": ["location"],
+      "category": "槽位缺失-缺少地点"
+    },
+    {
+      "input": "帮我找上海的餐厅",
+      "expected": "map-poi",
+      "type": "positive",
+      "category": "明确需求-地图POI"
+    },
+    {
+      "input": "深圳明天会下雨吗",
+      "expected": "weather",
+      "type": "positive",
+      "category": "明确需求-天气"
+    },
+    {
+      "input": "搜索最新的AI技术进展",
+      "expected": "web-search",
+      "type": "positive",
+      "category": "明确需求-网页搜索"
+    },
+    {
+      "input": "AI 和 AGI 的区别是什么",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-概念对比"
+    },
+    {
+      "input": "你能帮我做什么",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-能力咨询"
+    },
+    {
+      "input": "帮我找附近的电影院",
+      "expected": "map-poi",
+      "type": "positive",
+      "category": "明确需求-地图POI"
+    },
+    {
+      "input": "杭州这周末天气怎么样",
+      "expected": "weather",
+      "type": "positive",
+      "category": "明确需求-天气"
+    },
+    {
+      "input": "查找Python教程",
+      "expected": "web-search",
+      "type": "positive",
+      "category": "明确需求-网页搜索"
+    },
+    {
+      "input": "机器学习和深度学习有什么区别",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-技术对比"
+    },
+    {
+      "input": "你最擅长什么",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-能力咨询"
+    },
+    {
+      "input": "帮我查询",
+      "expected": "clarify",
+      "type": "clarify",
+      "missingSlots": ["keyword"],
+      "category": "槽位缺失-缺少关键词"
+    },
+    {
+      "input": "广州哪里有好吃的火锅",
+      "expected": "map-poi",
+      "type": "positive",
+      "category": "明确需求-地图POI"
+    },
+    {
+      "input": "成都今天气温多少度",
+      "expected": "weather",
+      "type": "positive",
+      "category": "明确需求-天气"
+    },
+    {
+      "input": "搜索TypeScript最佳实践",
+      "expected": "web-search",
+      "type": "positive",
+      "category": "明确需求-网页搜索"
+    },
+    {
+      "input": "代码质量应该如何保证",
+      "expected": null,
+      "type": "negative",
+      "category": "开放问答-技术讨论"
+    }
+  ]
+}

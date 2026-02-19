@@ -1,0 +1,141 @@
+#!/usr/bin/env tsx
+/**
+ * Discord 协作功能测试脚本
+ *
+ * 用法: tsx test-collaboration.ts "你的测试问题"
+ *
+ * 模拟真实的 Discord 协作场景：
+ * - bot2 和 bot3 收到带完整对话历史的消息
+ * - 验证对话历史格式化是否正确
+ */
+
+import { loadConfig } from "./src/js/shared/config.js";
+import { PiEngine } from "./src/js/pi/engine.js";
+
+/**
+ * 格式化对话历史（模拟 fetchCollaborationHistory 的输出）
+ */
+function formatHistory(messages: Array<{ author: string; content: string; role?: string }>): string {
+  return messages.map(msg => {
+    const roleTag = msg.role ? ` [${msg.role}]` : "";
+    return `【${msg.author}${roleTag}】：${msg.content}`;
+  }).join("\n\n");
+}
+
+async function testCollaboration(userMessage: string) {
+  console.log("=".repeat(80));
+  console.log("🧪 Discord 协作功能测试（带对话历史）");
+  console.log("=".repeat(80));
+  console.log();
+
+  const config = loadConfig();
+
+  // 模拟三个 bot 的角色
+  const bots = [
+    { agentId: "expert", username: "JPClaw", displayName: "正面专家" },
+    { agentId: "critic", username: "JPClaw2", displayName: "反面质疑者" },
+    { agentId: "thinker", username: "JPClaw3", displayName: "深度思考者" }
+  ];
+
+  // 保存对话历史
+  const conversationHistory: Array<{ author: string; content: string; role?: string }> = [];
+
+  // 用户原始问题
+  conversationHistory.push({
+    author: "jiangpingt_04698_20949",
+    content: userMessage
+  });
+
+  console.log(`📝 用户问题: ${userMessage}`);
+  console.log();
+
+  for (let i = 0; i < bots.length; i++) {
+    const bot = bots[i];
+    console.log("─".repeat(80));
+    console.log(`🤖 ${bot.displayName} (${bot.agentId}) 开始回复...`);
+    console.log();
+
+    const startTime = Date.now();
+
+    try {
+      // 创建引擎实例
+      const engine = new PiEngine(config, bot.agentId);
+
+      // 准备输入（模拟 Discord 协作触发消息）
+      let input: string;
+
+      if (i === 0) {
+        // Bot1 (expert): 直接回答用户问题
+        input = userMessage;
+        console.log("💬 收到的消息:");
+        console.log(`  "${input}"`);
+        console.log();
+      } else {
+        // Bot2/Bot3: 收到带对话历史的触发消息
+        const history = formatHistory(conversationHistory);
+        const triggerMsg = `<@${bot.username}> 来自<@jiangpingt_04698_20949>的问题 👆 请从【${bot.displayName}】角度分析上述内容`;
+
+        input = `${history}\n\n---\n\n${triggerMsg}`;
+
+        console.log("💬 收到的消息（包含对话历史）:");
+        console.log("┌─ 对话历史 ─────────────────────────────────────────");
+        console.log(history);
+        console.log("├─ 触发消息 ─────────────────────────────────────────");
+        console.log(triggerMsg);
+        console.log("├─ 完整输入（AI 实际收到的内容）────────────────────");
+        console.log(input);
+        console.log("└────────────────────────────────────────────────────");
+        console.log();
+        console.log(`📊 统计: 历史长度 ${history.length} 字符, 完整消息 ${input.length} 字符`);
+        console.log();
+      }
+
+      // 调用 AI
+      const response = await engine.reply(input, {
+        userId: "test_user",
+        userName: "测试用户",
+        channelId: "test_channel",
+        agentId: bot.agentId
+      });
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      console.log(`✅ 回复完成 (用时 ${duration}s)`);
+      console.log();
+      console.log("回复内容:");
+      console.log("┌────────────────────────────────────────────────────");
+      console.log(response);
+      console.log("└────────────────────────────────────────────────────");
+      console.log();
+
+      // 保存到对话历史
+      conversationHistory.push({
+        author: bot.username,
+        content: response,
+        role: bot.agentId
+      });
+
+    } catch (error) {
+      console.error(`❌ ${bot.displayName} 回复失败:`, error);
+      console.error(error);
+      break;
+    }
+  }
+
+  console.log("=".repeat(80));
+  console.log("✅ 协作测试完成");
+  console.log("=".repeat(80));
+  console.log();
+  console.log("📋 完整对话历史:");
+  console.log(formatHistory(conversationHistory));
+}
+
+// 获取命令行参数
+const userMessage = process.argv[2] || "我爱吃天津的煎饼果子，你爱吃吗，为什么";
+
+testCollaboration(userMessage)
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("测试失败:", error);
+    process.exit(1);
+  });

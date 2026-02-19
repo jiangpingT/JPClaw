@@ -1,0 +1,614 @@
+{
+  "description": "JPClaw 技能路由和功能测试用例集",
+  "version": "1.0.0",
+  "testCases": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expectedSkill": "web-search",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 2,
+      "skill": "zh-map-amap",
+      "query": "北京三里屯附近有什么咖啡馆",
+      "expectedSkill": "zh-map-amap",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 3,
+      "skill": "image-gen",
+      "query": "生成一张未来城市的图片",
+      "expectedSkill": "image-gen",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 4,
+      "skill": "browser-automation",
+      "query": "自动化操作网页：访问 https://github.com 并自动填写表单、点击按钮",
+      "expectedSkill": "browser-automation",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 5,
+      "skill": "web-scraper",
+      "query": "抓取 http://www.baidu.com 的内容",
+      "expectedSkill": "web-scraper",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 6,
+      "skill": "data-analysis",
+      "query": "分析这个CSV文件的数据",
+      "expectedSkill": "data-analysis",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 7,
+      "skill": "video-frames",
+      "query": "生成一个城市日出的视频",
+      "expectedSkill": "video-frames",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 8,
+      "skill": "email-automation",
+      "query": "草拟一封邮件给客户",
+      "expectedSkill": "email-automation",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 9,
+      "skill": "doc-generation",
+      "query": "生成一份项目报告文档",
+      "expectedSkill": "doc-generation",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 10,
+      "skill": "scheduled-tasks",
+      "query": "创建一个定时任务，每天早上9点运行",
+      "expectedSkill": "scheduled-tasks",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 11,
+      "skill": "workflow-runner",
+      "query": "创建一个工作流来自动化部署",
+      "expectedSkill": "workflow-runner",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 12,
+      "skill": "design-doc-mermaid",
+      "query": "生成一个用户登录流程的时序图",
+      "expectedSkill": "design-doc-mermaid",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 13,
+      "skill": "github",
+      "query": "查看 OpenClaw 项目的最新 PR",
+      "expectedSkill": "github",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 14,
+      "skill": "notion",
+      "query": "在 Notion 创建一个新页面",
+      "expectedSkill": "notion",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 15,
+      "skill": "discord",
+      "query": "发送Discord消息到开发频道",
+      "expectedSkill": "discord",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 16,
+      "skill": "apple-notes",
+      "query": "添加一条备忘录：明天买牛奶",
+      "expectedSkill": "apple-notes",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 17,
+      "skill": "transcript-fast",
+      "query": "获取这个YouTube视频的字幕",
+      "expectedSkill": "transcript-fast",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 18,
+      "skill": "notes",
+      "query": "在笔记中搜索关于项目的内容",
+      "expectedSkill": "notes",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 19,
+      "skill": "api-integration",
+      "query": "调用这个API接口获取数据",
+      "expectedSkill": "api-integration",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 20,
+      "skill": "coding-agent",
+      "query": "用 Codex 帮我重构这段代码",
+      "expectedSkill": "coding-agent",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 21,
+      "skill": "entity-intro",
+      "query": "生成一个关于马斯克的介绍",
+      "expectedSkill": "entity-intro",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 22,
+      "skill": "insight-summary",
+      "query": "提取这段文本的关键要点",
+      "expectedSkill": "insight-summary",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 23,
+      "skill": "echo",
+      "query": "echo 测试消息",
+      "expectedSkill": "echo",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 24,
+      "skill": "map-share-links",
+      "query": "生成北京天安门的地图分享链接",
+      "expectedSkill": "map-share-links",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 25,
+      "skill": "survey-batch",
+      "query": "生成一个用户满意度调研计划",
+      "expectedSkill": "survey-batch",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 26,
+      "skill": "1password",
+      "query": "从1Password读取GitHub的密码",
+      "expectedSkill": "1password",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 27,
+      "skill": "apple-reminders",
+      "query": "查看今天的提醒事项",
+      "expectedSkill": "apple-reminders",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 28,
+      "skill": "bear-notes",
+      "query": "在Bear创建一个新笔记",
+      "expectedSkill": "bear-notes",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 29,
+      "skill": "blogwatcher",
+      "query": "监控我的博客更新",
+      "expectedSkill": "blogwatcher",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 30,
+      "skill": "bluetooth-cli",
+      "query": "使用蓝牙命令行工具连接蓝牙音箱并播放音乐",
+      "expectedSkill": "bluetooth-cli",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 31,
+      "skill": "bluebubbles",
+      "query": "发送iMessage给朋友",
+      "expectedSkill": "bluebubbles",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 32,
+      "skill": "camsnap",
+      "query": "抓拍客厅摄像头的画面",
+      "expectedSkill": "camsnap",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 33,
+      "skill": "canvas",
+      "query": "在设备上显示这个HTML内容",
+      "expectedSkill": "canvas",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 34,
+      "skill": "clawhub",
+      "query": "搜索可用的技能",
+      "expectedSkill": "clawhub",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 35,
+      "skill": "eightctl",
+      "query": "调节智能床温度到20度",
+      "expectedSkill": "eightctl",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 36,
+      "skill": "food-order",
+      "query": "订外卖",
+      "expectedSkill": "food-order",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 37,
+      "skill": "gemini",
+      "query": "用Gemini回答这个问题",
+      "expectedSkill": "gemini",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 38,
+      "skill": "gifgrep",
+      "query": "搜索一个庆祝的GIF",
+      "expectedSkill": "gifgrep",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 39,
+      "skill": "gmail-search",
+      "query": "搜索Gmail中来自客户的邮件",
+      "expectedSkill": "gmail-search",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 40,
+      "skill": "goplaces",
+      "query": "使用Google Places API搜索我附近500米内的寿司店",
+      "expectedSkill": "goplaces",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 41,
+      "skill": "healthcheck",
+      "query": "检查系统安全配置",
+      "expectedSkill": "healthcheck",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 42,
+      "skill": "himalaya",
+      "query": "列出最新的邮件",
+      "expectedSkill": "himalaya",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 43,
+      "skill": "imsg",
+      "query": "发送短信",
+      "expectedSkill": "imsg",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 44,
+      "skill": "local-places",
+      "query": "启动本地Google Places服务，搜索伦敦市中心2公里内的意大利餐厅",
+      "expectedSkill": "local-places",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 45,
+      "skill": "model-usage",
+      "query": "查看AI模型使用统计",
+      "expectedSkill": "model-usage",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 46,
+      "skill": "nano-pdf",
+      "query": "编辑这个PDF文件",
+      "expectedSkill": "nano-pdf",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 47,
+      "skill": "map-query",
+      "query": "查询两地之间的距离",
+      "expectedSkill": "map-query",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 49,
+      "skill": "social-stats",
+      "query": "分析这个Twitter账号的粉丝增长、互动率等统计数据",
+      "expectedSkill": "social-stats",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 52,
+      "skill": "mcporter",
+      "query": "管理MCP服务器",
+      "expectedSkill": "mcporter",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 53,
+      "skill": "audio-stt-local",
+      "query": "转录这个音频文件",
+      "expectedSkill": "audio-stt-local",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 54,
+      "skill": "audio-tts-local",
+      "query": "朗读这段文字",
+      "expectedSkill": "audio-tts-local",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 55,
+      "skill": "weather",
+      "query": "查询北京的天气",
+      "expectedSkill": "weather",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 56,
+      "skill": "slack",
+      "query": "发送Slack消息到团队频道",
+      "expectedSkill": "slack",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 57,
+      "skill": "obsidian",
+      "query": "在Obsidian创建一个新笔记",
+      "expectedSkill": "obsidian",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 58,
+      "skill": "tts-sherpa",
+      "query": "用本地TTS生成语音",
+      "expectedSkill": "tts-sherpa",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 59,
+      "skill": "whisper-local",
+      "query": "用本地Whisper转录音频",
+      "expectedSkill": "whisper-local",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 60,
+      "skill": "whisper-api",
+      "query": "用Whisper API转录这个音频",
+      "expectedSkill": "whisper-api",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 61,
+      "skill": "skill-creator",
+      "query": "创建一个新的技能",
+      "expectedSkill": "skill-creator",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 62,
+      "skill": "oracle",
+      "query": "查询Oracle数据库",
+      "expectedSkill": "oracle",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 63,
+      "skill": "ordercli",
+      "query": "使用ordercli命令行工具查询我的订单列表",
+      "expectedSkill": "ordercli",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 64,
+      "skill": "screen-capture",
+      "query": "截图屏幕",
+      "expectedSkill": "screen-capture",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 65,
+      "skill": "system-analyzer",
+      "query": "分析系统性能",
+      "expectedSkill": "system-analyzer",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 66,
+      "skill": "session-logs",
+      "query": "查看会话日志",
+      "expectedSkill": "session-logs",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 67,
+      "skill": "openhue",
+      "query": "打开客厅的灯",
+      "expectedSkill": "openhue",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 68,
+      "skill": "songsee",
+      "query": "识别这首歌",
+      "expectedSkill": "songsee",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 69,
+      "skill": "sonoscli",
+      "query": "控制Sonos音响播放音乐",
+      "expectedSkill": "sonoscli",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 70,
+      "skill": "spotify-player",
+      "query": "在Spotify播放我喜欢的歌单",
+      "expectedSkill": "spotify-player",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 71,
+      "skill": "things-mac",
+      "query": "在Things添加一个任务",
+      "expectedSkill": "things-mac",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 72,
+      "skill": "tmux",
+      "query": "创建一个tmux会话",
+      "expectedSkill": "tmux",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 73,
+      "skill": "trello",
+      "query": "在Trello创建一个新卡片",
+      "expectedSkill": "trello",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 74,
+      "skill": "voice-call",
+      "query": "拨打语音电话",
+      "expectedSkill": "voice-call",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 75,
+      "skill": "whatsapp-cli",
+      "query": "发送WhatsApp消息",
+      "expectedSkill": "whatsapp-cli",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 76,
+      "skill": "openclaw-docs-web",
+      "query": "查看OpenClaw文档",
+      "expectedSkill": "openclaw-docs-web",
+      "category": "未分类",
+      "priority": "medium"
+    },
+    {
+      "id": 75,
+      "skill": "moltbook",
+      "query": "在Moltbook上发布一条帖子",
+      "expectedSkill": "moltbook",
+      "category": "社交平台",
+      "priority": "medium"
+    },
+    {
+      "id": 76,
+      "skill": "moltbook",
+      "query": "评论Moltbook的帖子",
+      "expectedSkill": "moltbook",
+      "category": "社交平台",
+      "priority": "medium"
+    },
+    {
+      "id": 77,
+      "skill": "moltbook",
+      "query": "查看我在Moltbook的最新帖子",
+      "expectedSkill": "moltbook",
+      "category": "社交平台",
+      "priority": "medium"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-02-15T08:19:32.858Z",
+  "total": 5,
+  "passed": 4,
+  "failed": 1,
+  "passRate": 80,
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expected": "web-search",
+      "actual": "web-search",
+      "response": "根据搜索结果，我为你整理了近期的科技新闻动态：\n\n## 最新科技新闻\n\n### AI 领域\n- **字节跳动 AI 模型 Seedance 上线**：引发了隐私和道德争议的讨论\n\n### 科技活动\n- **苹果程序设计学生挑战赛**：已开放报名\n\n### 天文观测\n- **三月\"血月\"月全食**：即将上演，美国西部为最佳观测地点\n\n### 2024-2025 年度科技盘点\n- **清华大学 202",
+      "duration": 25989,
+      "success": true
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "北京三里屯附近有什么咖啡馆",
+      "expected": "map-poi",
+      "actual": "web-search",
+      "response": "根据搜索结果，当前搜索工具返回的信息有限。不过我可以根据已知信息为你提供一些三里屯地区比较知名的咖啡馆（提示：以下信息可能不是最新的，建议实地确认营业状态）：\n\n**三里屯太古里区域：**\n- **Starbucks Reserve**（星巴克臻选店）- 三里屯太古里南区，旗舰店规模大\n- **% Arabica** - 日系精品咖啡，简约风格\n- **Manner Coffee** - 性价比高",
+      "duration": 22022,
+      "success": false
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expected": "openai-image-gen",
+      "actual": "openai-image-gen",
+      "response": "抱歉，图片生成功能需要配置 API 密钥才能使用。目前系统尝试了两个服务但都未配置：\n\n1. **Gemini API**（主要）- 需要 `GEMINI_API_KEY`\n2. **OpenAI API**（备用）- 需要 `OPENAI_API_KEY`\n\n**解决方案：**\n\n如果你有这些 API 密钥，我可以帮你配置。请告诉我：\n- 你是否有 Google Gemini API 密钥？\n-",
+      "duration": 19549,
+      "success": true
+    },
+    {
+      "id": 4,
+      "skill": "browser-automation",
+      "query": "打开网页 https://github.com 并截图",
+      "expected": "browser-automation",
+      "actual": "browser-automation",
+      "response": "✅ **任务完成！**\n\n已成功打开 https://github.com 并截图。\n\n**截图信息：**\n- 文件名：`github_screenshot.png`\n- 大小：523KB\n- 分辨率：1920 x 1080\n- 格式：PNG\n\n截图已保存在当前工作目录中。我使用了 Playwright + Chromium 来加载网页并生成截图，确保页面完全加载后才截取。",
+      "duration": 50814,
+      "success": true
+    },
+    {
+      "id": 5,
+      "skill": "web-scraper",
+      "query": "抓取 http://www.baidu.com 的内容",
+      "expected": "web-scraper",
+      "actual": "web-scraper",
+      "response": "已成功抓取百度首页内容！\n\n抓取到的是完整的 HTML 页面，包含：\n- **DOCTYPE 声明**：标准 HTML5 文档\n- **Meta 信息**：字符集 UTF-8，描述为\"全球领先的中文搜索引擎\"\n- **大量 CSS 样式**：搜索框、建议框、导航等样式定义\n- **页面结构**：百度 Logo、搜索表单、导航链接等\n\n主要元素：\n- 标题：`百度一下，你就知道`\n- 搜索表单相关的",
+      "duration": 16973,
+      "success": true
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "transcript-fast",
+  "description": "Fast YouTube transcript extraction with language preference and timestamps.",
+  "entry": "index.js",
+  "permissions": ["network"]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "audio-stt",
+  "description": "语音转文字 (Speech-to-Text)。支持OpenAI Whisper和Google Speech-to-Text，可识别多种语言的语音内容。",
+  "version": "1.0.0",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "file": {
+        "type": "string",
+        "description": "音频文件路径 (支持mp3/wav/m4a/webm等格式)"
+      },
+      "language": {
+        "type": "string",
+        "description": "语言代码 (zh/en/ja/auto)"
+      },
+      "response_format": {
+        "type": "string",
+        "description": "响应格式 (json/text/srt/verbose_json/vtt)"
+      },
+      "provider": {
+        "type": "string",
+        "description": "提供商 (openai/google)"
+      },
+      "prompt": {
+        "type": "string",
+        "description": "可选的提示词，帮助识别特定词汇"
+      }
+    },
+    "required": ["file"]
+  }
+}

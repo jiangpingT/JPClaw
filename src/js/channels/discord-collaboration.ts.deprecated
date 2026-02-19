@@ -1,0 +1,319 @@
+/**
+ * Discord Multi-Bot Collaboration Orchestrator
+ *
+ * 泛化的协作机制：
+ * - 自动检测频道中的bot及其角色
+ * - 按角色优先级编排自动接力
+ * - 适配任意频道、任意bot组合
+ */
+
+import type { Message, Client } from "discord.js";
+import { log } from "../shared/logger.js";
+
+/**
+ * 角色优先级定义（决定接力顺序）
+ */
+const ROLE_PRIORITY: Record<string, number> = {
+  expert: 1,      // 正面专家 - 首先回答
+  critic: 2,       // 反面质疑者 - 其次质疑
+  thinker: 3        // 深度思考者 - 最后总结
+};
+
+/**
+ * 角色显示名称
+ */
+const ROLE_DISPLAY_NAMES: Record<string, string> = {
+  expert: "正面专家",
+  critic: "反面质疑者",
+  thinker: "深度思考者"
+};
+
+/**
+ * Bot信息
+ */
+interface BotInfo {
+  userId: string;
+  agentId: string;
+  username: string;
+  priority: number;
+}
+
+/**
+ * 协作上下文
+ */
+interface CollaborationContext {
+  channelId: string;
+  originalMessageId: string;
+  initiatorUserId: string;
+  botsInChannel: BotInfo[];
+  completedBots: Set<string>; // 已完成回复的bot userId
+}
+
+/**
+ * 协作编排器
+ */
+export class CollaborationOrchestrator {
+  // 存储每个消息的协作上下文
+  private contexts = new Map<string, CollaborationContext>();
+
+  // Bot配置映射：userId -> agentId
+  private botConfigs = new Map<string, string>();
+
+  // 触发消息ID -> 原始消息ID 的映射（解决协作链中的消息追踪问题）
+  private triggerMessageMap = new Map<string, string>();
+
+  /**
+   * 注册bot配置
+   */
+  registerBot(userId: string, agentId: string): void {
+    this.botConfigs.set(userId, agentId);
+    log("info", "discord.collaboration.bot.registered", { userId, agentId });
+  }
+
+  /**
+   * 检测频道中的协作bot
+   * 使用已注册的bot配置，避免调用 guild.members.fetch() 超时
+   */
+  async detectBotsInChannel(client: Client, channelId: string): Promise<BotInfo[]> {
+    try {
+      const bots: BotInfo[] = [];
+
+      // 直接使用已注册的bot配置
+      for (const [userId, agentId] of this.botConfigs) {
+        if (ROLE_PRIORITY[agentId] !== undefined) {
+          // 尝试获取bot的用户信息（不获取也不影响功能）
+          let username = `Bot_${agentId}`;
+          try {
+            const user = await client.users.fetch(userId);
+            username = user.username;
+          } catch {
+            // 获取失败也不影响，使用默认名称
+          }
+
+          bots.push({
+            userId,
+            agentId,
+            username,
+            priority: ROLE_PRIORITY[agentId]
+          });
+        }
+      }
+
+      // 按优先级排序
+      bots.sort((a, b) => a.priority - b.priority);
+
+      log("info", "discord.collaboration.bots.detected", {
+        channelId,
+        count: bots.length,
+        bots: bots.map(b => ({ username: b.username, role: b.agentId }))
+      });
+
+      return bots;
+    } catch (error) {
+      log("error", "discord.collaboration.detect.failed", {
+        channelId,
+        error: String(error)
+      });
+      return [];
+    }
+  }
+
+  /**
+   * 初始化协作上下文（用户发起提问时）
+   */
+  async initCollaboration(
+    client: Client,
+    message: Message,
+    initiatorBotUserId: string
+  ): Promise<void> {
+    // 只有用户消息才能初始化协作，bot消息不应该触发新的协作
+    if (message.author.bot) {
+      log("debug", "discord.collaboration.skipped", {
+        reason: "message_from_bot",
+        authorId: message.author.id
+      });
+      return;
+    }
+
+    const botsInChannel = await this.detectBotsInChannel(client, message.channelId);
+
+    // 至少需要2个bot才启用协作
+    if (botsInChannel.length < 2) {
+      log("debug", "discord.collaboration.skipped", {
+        reason: "not_enough_bots",
+        count: botsInChannel.length
+      });
+      return;
+    }
+
+    const context: CollaborationContext = {
+      channelId: message.channelId,
+      originalMessageId: message.id,
+      initiatorUserId: message.author.id,
+      botsInChannel,
+      completedBots: new Set()
+    };
+
+    this.contexts.set(message.id, context);
+
+    log("info", "discord.collaboration.initialized", {
+      messageId: message.id,
+      channelId: message.channelId,
+      botCount: botsInChannel.length,
+      roles: botsInChannel.map(b => b.agentId)
+    });
+  }
+
+  /**
+   * Bot完成回复后调用（触发下一个bot）
+   */
+  async onBotReplied(
+    client: Client,
+    originalMessageId: string,
+    botUserId: string,
+    replyMessage: Message
+  ): Promise<void> {
+    // 尝试通过触发消息映射找到真正的原始消息ID
+    const actualOriginalId = this.triggerMessageMap.get(originalMessageId) || originalMessageId;
+
+    let context = this.contexts.get(actualOriginalId);
+
+    // 【新逻辑】如果没有协作上下文，且当前bot是expert，则初始化协作
+    if (!context) {
+      const botAgentId = this.botConfigs.get(botUserId);
+
+      // 只有expert回复后才初始化协作（用户只能触发expert）
+      if (botAgentId === "expert") {
+        log("info", "discord.collaboration.init_on_expert_reply", {
+          originalMessageId: actualOriginalId,
+          botUserId
+        });
+
+        // 获取原始用户消息
+        try {
+          const channel = await client.channels.fetch(replyMessage.channelId);
+          if (channel && "messages" in channel) {
+            const originalMessage = await channel.messages.fetch(actualOriginalId);
+
+            // 初始化协作上下文
+            const botsInChannel = await this.detectBotsInChannel(client, replyMessage.channelId);
+            if (botsInChannel.length >= 2) {
+              context = {
+                channelId: replyMessage.channelId,
+                originalMessageId: actualOriginalId,
+                initiatorUserId: originalMessage.author.id,
+                botsInChannel,
+                completedBots: new Set()
+              };
+              this.contexts.set(actualOriginalId, context);
+
+              log("info", "discord.collaboration.initialized", {
+                messageId: actualOriginalId,
+                channelId: replyMessage.channelId,
+                botCount: botsInChannel.length,
+                roles: botsInChannel.map(b => b.agentId)
+              });
+            }
+          }
+        } catch (error) {
+          log("error", "discord.collaboration.init_failed", {
+            originalMessageId: actualOriginalId,
+            error: String(error)
+          });
+        }
+      }
+
+      // 如果还是没有context，说明不需要协作，直接返回
+      if (!context) {
+        log("debug", "discord.collaboration.no_context", {
+          originalMessageId,
+          actualOriginalId,
+          hasTriggerMapping: this.triggerMessageMap.has(originalMessageId)
+        });
+        return;
+      }
+    }
+
+    // 标记当前bot已完成
+    context.completedBots.add(botUserId);
+
+    // 找到当前bot的位置
+    const currentBotIndex = context.botsInChannel.findIndex(b => b.userId === botUserId);
+    if (currentBotIndex === -1) {
+      log("warn", "discord.collaboration.bot_not_found", { botUserId });
+      return;
+    }
+
+    // 检查是否有下一个bot
+    const nextBotIndex = currentBotIndex + 1;
+    if (nextBotIndex >= context.botsInChannel.length) {
+      // 协作完成
+      log("info", "discord.collaboration.completed", {
+        messageId: actualOriginalId,
+        completedBots: Array.from(context.completedBots)
+      });
+      this.contexts.delete(actualOriginalId);
+      return;
+    }
+
+    const nextBot = context.botsInChannel[nextBotIndex];
+
+    // 触发下一个bot（通过@提及）
+    try {
+      const channel = await client.channels.fetch(context.channelId);
+      if (!channel || !("send" in channel)) {
+        log("error", "discord.collaboration.channel_invalid", { channelId: context.channelId });
+        return;
+      }
+
+      // 【修复】在触发消息中@原始用户，让下一个bot能正确获取对话上下文
+      const triggerMessage = `<@${nextBot.userId}> 来自<@${context.initiatorUserId}>的问题 👆 请从【${ROLE_DISPLAY_NAMES[nextBot.agentId]}】角度分析上述内容`;
+
+      const sentMessage = await (channel as any).send({
+        content: triggerMessage,
+        reply: { messageReference: replyMessage.id }
+      });
+
+      // 记录触发消息ID -> 原始消息ID 的映射，用于后续bot回复时追溯
+      if (sentMessage && sentMessage.id) {
+        this.triggerMessageMap.set(sentMessage.id, actualOriginalId);
+      }
+
+      log("info", "discord.collaboration.next_bot_triggered", {
+        currentBot: context.botsInChannel[currentBotIndex].agentId,
+        nextBot: nextBot.agentId,
+        nextBotUser: nextBot.username,
+        triggerMessageId: sentMessage?.id,
+        originalMessageId: actualOriginalId
+      });
+    } catch (error) {
+      log("error", "discord.collaboration.trigger_failed", {
+        nextBot: nextBot.agentId,
+        error: String(error)
+      });
+    }
+  }
+
+  /**
+   * 清理过期的上下文（防止内存泄漏）
+   */
+  cleanup(): void {
+    // 清理1小时前的上下文
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+
+    // 这里简化处理，实际应该记录创建时间
+    // 暂时保留所有上下文，由完成回调清理
+  }
+
+  /**
+   * 检查消息是否是协作触发消息
+   */
+  isCollaborationTrigger(message: Message): boolean {
+    const content = message.content.toLowerCase();
+    return content.includes("请从【") && content.includes("】角度分析");
+  }
+}
+
+// 全局单例
+export const collaborationOrchestrator = new CollaborationOrchestrator();

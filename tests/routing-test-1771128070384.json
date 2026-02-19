@@ -1,0 +1,59 @@
+{
+  "summary": {
+    "total": 3,
+    "passed": 0,
+    "failed": 3,
+    "passRate": 0,
+    "avgDuration": 25526,
+    "timestamp": "2026-02-15T04:01:10.384Z"
+  },
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expectedSkill": "web-search",
+      "response": "错误: HTTP 408: {\"error\":\"Request timeout\"}",
+      "duration": 30044,
+      "timestamp": "2026-02-15T04:00:21.847Z",
+      "success": false,
+      "notes": "执行失败"
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "附近有什么咖啡馆",
+      "expectedSkill": "map-poi",
+      "response": "错误: Request failed: socket hang up",
+      "duration": 16530,
+      "timestamp": "2026-02-15T04:00:39.379Z",
+      "success": false,
+      "notes": "执行失败"
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expectedSkill": "openai-image-gen",
+      "response": "错误: HTTP 408: {\"error\":\"Request timeout\"}",
+      "duration": 30004,
+      "timestamp": "2026-02-15T04:01:10.384Z",
+      "success": false,
+      "notes": "执行失败"
+    }
+  ],
+  "byCategory": {
+    "搜索与信息": {
+      "total": 1,
+      "passed": 0
+    },
+    "地图与位置": {
+      "total": 1,
+      "passed": 0
+    },
+    "图像生成": {
+      "total": 1,
+      "passed": 0
+    }
+  }
+}

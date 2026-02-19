@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-02-15T07:12:16.264Z",
+  "total": 5,
+  "passed": 1,
+  "failed": 4,
+  "passRate": 20,
+  "results": [
+    {
+      "id": 1,
+      "skill": "web-search",
+      "query": "搜索一下今天的科技新闻",
+      "expected": "web-search",
+      "actual": "web-search",
+      "response": "根据最新搜索，我找到了一条近期科技新闻：\n\n## 📰 最新科技动态（2月13日）\n\n### 🔥 字节跳动AI新动态\n- **字节跳动AI模型 Seedance 上线**\n- 但该模型被曝出存在**隐私和道德争议**问题\n- 这是字节跳动在AI领域的最新布局\n\n### 📊 年度科技回顾类\n- 2025年度\"十大科技新闻事件\"发布，**人形机器人\"半马\"**入选\n- 多个2025年度科技热词和科",
+      "duration": 22865,
+      "success": true
+    },
+    {
+      "id": 2,
+      "skill": "map-poi",
+      "query": "附近有什么咖啡馆",
+      "expected": "map-poi",
+      "actual": null,
+      "response": "我明白了，让我换个方式帮您。\n\n我是 AI 助手，**没有获取您设备位置的能力**，所以无法知道您的\"附近\"是哪里。\n\n不过我可以：\n1. **如果您告诉我城市/区域**，我可以帮您搜索那里的咖啡馆推荐\n2. **或者我随机搜索一个热门城市**（比如北京/上海）的咖啡馆信息给您参考\n\n您选哪种？或者直接告诉我您在哪个城市也行。",
+      "duration": 8482,
+      "success": false
+    },
+    {
+      "id": 3,
+      "skill": "openai-image-gen",
+      "query": "生成一张未来城市的图片",
+      "expected": "openai-image-gen",
+      "actual": null,
+      "response": "我完全理解你的需求。但我必须明确告知一个技术事实：\n\n**当前系统无法生成图片**，原因是：\n- 所有图像生成功能都依赖云服务 API（Gemini 或 OpenAI）\n- 系统中 `GEMINI_API_KEY` 和 `OPENAI_API_KEY` 都未配置\n- 没有本地图像生成能力\n\n**这是硬性限制，无法绕过。**\n\n**唯一可行路径：**\n\n1️⃣ **获取 Gemini API Key",
+      "duration": 22387,
+      "success": false
+    },
+    {
+      "id": 4,
+      "skill": "browser-automation",
+      "query": "打开网页 https://github.com 并截图",
+      "expected": "browser-automation",
+      "actual": null,
+      "response": "Error: HTTP 408: {\"error\":\"Request timeout\"}",
+      "duration": 248889,
+      "success": false
+    },
+    {
+      "id": 14,
+      "skill": "github",
+      "query": "了解最新的 OpenClaw 的 PR",
+      "expected": "github",
+      "actual": "web-search",
+      "response": "抱歉，当前使用的 DuckDuckGo 搜索引擎未能找到 OpenClaw 项目的相关信息和 PR。\n\n**当前搜索限制：**\n- DuckDuckGo API 对某些项目的覆盖有限\n- 如果 OpenClaw 是较新或较小众的项目，可能搜不到\n\n**建议解决方案：**\n\n1. **配置更强的搜索能力**（推荐）：\n   - 配置 `BRAVE_SEARCH_API_KEY` 可获得更好的搜索结果",
+      "duration": 39492,
+      "success": false
+    }
+  ]
+}

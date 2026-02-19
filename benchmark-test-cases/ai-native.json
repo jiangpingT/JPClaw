@@ -1,0 +1,138 @@
+{
+  "description": "AI Native 能力测试用例 - 验证 AI 驱动、置信度、降级智慧",
+  "version": "1.0.0",
+
+  "confidenceCalibration": {
+    "description": "置信度校准测试 - 验证 confidence 与实际准确率匹配",
+    "cases": [
+      {
+        "input": "帮我搜索北京的咖啡店",
+        "expectedConfidence": ">= 0.85",
+        "shouldRoute": true,
+        "note": "明确需求，高置信度"
+      },
+      {
+        "input": "查一下明天北京的天气",
+        "expectedConfidence": ">= 0.85",
+        "shouldRoute": true,
+        "note": "明确需求，高置信度"
+      },
+      {
+        "input": "我想了解一下咖啡文化",
+        "expectedConfidence": "< 0.5",
+        "shouldRoute": false,
+        "note": "开放问答，低置信度"
+      },
+      {
+        "input": "人工智能的哲学思考",
+        "expectedConfidence": "< 0.5",
+        "shouldRoute": false,
+        "note": "开放问答，低置信度"
+      },
+      {
+        "input": "帮我找个地方",
+        "expectedConfidence": "< 0.7",
+        "shouldRoute": false,
+        "note": "模糊表达，中低置信度"
+      }
+    ]
+  },
+
+  "degradationWisdom": {
+    "description": "降级智慧测试 - 验证 AI 知道何时降级到模型",
+    "cases": [
+      {
+        "input": "人工智能的哲学思考",
+        "expectedAction": "model_reply",
+        "reason": "开放问答应该降级到模型回复"
+      },
+      {
+        "input": "你有什么技能",
+        "expectedAction": "model_reply",
+        "reason": "能力咨询应该降级到模型回复"
+      },
+      {
+        "input": "介绍一下你自己",
+        "expectedAction": "model_reply",
+        "reason": "自我介绍应该降级到模型回复"
+      },
+      {
+        "input": "帮我搜索",
+        "expectedAction": "clarify",
+        "reason": "缺少参数应该追问"
+      },
+      {
+        "input": "查一下天气",
+        "expectedAction": "clarify",
+        "reason": "缺少地点应该追问"
+      },
+      {
+        "input": "帮我搜索北京的咖啡店",
+        "expectedAction": "run_skill",
+        "reason": "明确需求应该执行技能"
+      },
+      {
+        "input": "查一下明天北京的天气",
+        "expectedAction": "run_skill",
+        "reason": "明确需求应该执行技能"
+      }
+    ]
+  },
+
+  "twoStageEffectiveness": {
+    "description": "两段式流程测试 - 验证 Stage A 过滤 + Stage B 决策",
+    "cases": [
+      {
+        "input": "你有什么能力",
+        "stageA": { "expectedCandidates": "empty" },
+        "note": "Stage A 应该过滤能力咨询，返回空候选"
+      },
+      {
+        "input": "人工智能的未来是什么",
+        "stageA": { "expectedCandidates": "empty" },
+        "note": "Stage A 应该过滤开放问答，返回空候选"
+      },
+      {
+        "input": "介绍一下深度学习",
+        "stageA": { "expectedCandidates": "empty" },
+        "note": "Stage A 应该过滤知识问答，返回空候选"
+      },
+      {
+        "input": "帮我搜索北京的咖啡店",
+        "stageA": { "expectedCandidates": ["map-poi", "web-search"] },
+        "stageB": { "expectedSkill": "map-poi" },
+        "note": "Stage A 生成候选，Stage B 选择最合适的"
+      },
+      {
+        "input": "查一下明天天气",
+        "stageA": { "expectedCandidates": ["weather"] },
+        "stageB": { "expectedSkill": "weather" },
+        "note": "Stage A 生成候选，Stage B 确认"
+      },
+      {
+        "input": "搜索人工智能新闻",
+        "stageA": { "expectedCandidates": ["web-search"] },
+        "stageB": { "expectedSkill": "web-search" },
+        "note": "Stage A 生成候选，Stage B 确认"
+      }
+    ]
+  },
+
+  "hardcodedDetection": {
+    "description": "硬编码检测 - 扫描代码中的硬编码规则",
+    "targetFiles": [
+      "src/js/channels/skill-router.ts",
+      "src/js/channels/intent-system.ts",
+      "src/js/channels/slot-filler.ts"
+    ],
+    "forbiddenPatterns": [
+      "/\\/(skill|技能|能力|会什么)/i",
+      "/(运行|执行|调用)/i",
+      "/(哪个|哪些|有什么)/i",
+      "const\\s+hardcoded",
+      "const\\s+RULES\\s*=",
+      "const\\s+KEYWORDS\\s*="
+    ],
+    "note": "验证阶段3已移除所有硬编码规则"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "mcporter",
+  "description": "Safe MCP execution wrapper around mcporter CLI with policy checks.",
+  "entry": "index.js",
+  "permissions": ["network"]
+}
