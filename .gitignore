@@ -21,8 +21,8 @@ benchmark-reports/
 
 # 临时截图和爬取文件
 *.png
-*.html
 baidu_homepage.html
+*_homepage.html
 
 # 临时脚本（根目录散落的测试/爬虫脚本）
 test-*.js
