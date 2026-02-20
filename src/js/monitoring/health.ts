@@ -4,6 +4,7 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { log } from "../shared/logger.js";
 import { metrics } from "./metrics.js";
@@ -339,6 +340,49 @@ class HealthMonitor {
       },
       interval: 30000, // 30秒
       critical: true
+    });
+
+    // 系统 RAM 健康检查
+    // 关注点：macOS 可用内存（free）是否不足，与 V8 堆无关
+    this.register({
+      name: "system_memory",
+      description: "Check system RAM availability",
+      check: async () => {
+        const totalMB = Math.round(os.totalmem() / 1024 / 1024);
+        const freeMB  = Math.round(os.freemem()  / 1024 / 1024);
+        const usedMB  = totalMB - freeMB;
+        const freePct = Math.round((freeMB / totalMB) * 100);
+
+        const details = { totalMB, freeMB, usedMB, freePct };
+
+        if (freePct < 10) {
+          return {
+            status: "unhealthy",
+            message: `系统内存严重不足：剩余 ${freeMB} MB / ${totalMB} MB（${freePct}% 空闲）`,
+            details,
+            timestamp: Date.now(),
+            duration: 0
+          };
+        } else if (freePct < 15) {
+          return {
+            status: "degraded",
+            message: `系统内存偏低：剩余 ${freeMB} MB / ${totalMB} MB（${freePct}% 空闲）`,
+            details,
+            timestamp: Date.now(),
+            duration: 0
+          };
+        }
+
+        return {
+          status: "healthy",
+          message: `系统内存正常：剩余 ${freeMB} MB / ${totalMB} MB（${freePct}% 空闲）`,
+          details,
+          timestamp: Date.now(),
+          duration: 0
+        };
+      },
+      interval: 30000,
+      critical: false  // 系统整体内存压力，仅参考，不影响 overall 状态
     });
 
     // 磁盘健康检查

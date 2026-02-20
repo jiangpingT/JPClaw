@@ -414,7 +414,8 @@
 
     // ── 健康检查名称中文映射 ──
     const CHECK_CN = {
-      memory:            '系统内存',
+      memory:            'V8 堆内存',
+      system_memory:     '系统 RAM',
       disk:              '磁盘空间',
       event_loop:        '事件循环延迟',
       provider_anthropic:'Anthropic API 连通性',
@@ -608,9 +609,14 @@
 
     function formatCheckDetail(name, result) {
       if (!result.details) return escHtml(result.message || '');
-      // 内存：显示 heapUsed / heapMax
+      // V8 堆内存：显示 heapUsed / heapMax
       if (name === 'memory' && result.details.heapUsedMB != null) {
         return result.details.heapUsedMB + ' MB / ' + result.details.heapMaxMB + ' MB';
+      }
+      // 系统 RAM：显示已用 / 总量 · 剩余%
+      if (name === 'system_memory' && result.details.totalMB != null) {
+        const { usedMB, totalMB, freePct } = result.details;
+        return '已用 ' + usedMB + ' MB / ' + totalMB + ' MB · 剩余 ' + freePct + '%';
       }
       // 向量记忆：显示条数
       if (name === 'vector_memory' && result.details.totalVectors != null) {
