@@ -413,6 +413,16 @@ class MetricsCollector {
         this.counters.delete(key);
       }
     }
+
+    // 清理僵尸 timers：startTimer() 后未调用 endTimer()（如中途抛异常）
+    // 超过 5 分钟未结束的计时器视为泄漏，强制删除
+    const timerMaxAge = 5 * 60 * 1000;
+    for (const [timerId, timer] of this.timers) {
+      if (now - timer.start > timerMaxAge) {
+        this.timers.delete(timerId);
+        log("warn", "metrics.timer.leaked", { timerId, ageMs: now - timer.start });
+      }
+    }
   }
 
   /**

@@ -93,6 +93,42 @@ export class IntelligentConflictResolver {
 
   private constructor() {
     this.loadCredibilityData();
+    this.startCleanup();
+  }
+
+  /**
+   * 定期清理 detectedConflicts 和 resolutionHistory，防止无界增长。
+   * detectedConflicts 里每个条目含 relatedMemories[] 大对象，不清理会持续泄漏。
+   */
+  private startCleanup(): void {
+    const CONFLICT_TTL_MS   = 24 * 60 * 60 * 1000; // 冲突保留 24 小时
+    const MAX_CONFLICTS     = 5000;                  // 全局上限
+    const HISTORY_MAX_PER_USER = 100;               // 每用户最多 100 条解决历史
+
+    setInterval(() => {
+      const now = Date.now();
+
+      // 清理过期冲突
+      for (const [id, conflict] of this.detectedConflicts) {
+        if (now - conflict.metadata.detectedAt > CONFLICT_TTL_MS) {
+          this.detectedConflicts.delete(id);
+        }
+      }
+
+      // 全局上限兜底：超过时删除最旧的
+      if (this.detectedConflicts.size > MAX_CONFLICTS) {
+        const toDelete = Array.from(this.detectedConflicts.keys())
+          .slice(0, this.detectedConflicts.size - MAX_CONFLICTS);
+        for (const id of toDelete) this.detectedConflicts.delete(id);
+      }
+
+      // 限制每用户解决历史长度
+      for (const [userId, history] of this.resolutionHistory) {
+        if (history.length > HISTORY_MAX_PER_USER) {
+          this.resolutionHistory.set(userId, history.slice(-HISTORY_MAX_PER_USER));
+        }
+      }
+    }, 60 * 60 * 1000).unref(); // 每小时清理一次，不阻止进程退出
   }
 
   /**
