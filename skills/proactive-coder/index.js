@@ -176,19 +176,26 @@ ${depthInstruction[depth] || depthInstruction.standard}
   }
 
   const maxTokens = depth === "quick" ? 2048 : 8192;
+  const context = contextParts.join("\n\n");
 
-  try {
-    return await callAnthropicJSON(systemPrompt, contextParts.join("\n\n"), { maxTokens });
-  } catch (err) {
-    // JSON 解析失败（截断或格式错误）：尝试从错误消息中提取 summary，优雅降级
-    const raw = err.message || "";
-    const summaryMatch = raw.match(/"summary"\s*:\s*"([^"]+)"/);
-    return {
-      summary: summaryMatch ? summaryMatch[1] : "AI 分析返回格式异常，已跳过",
-      actions: [],
-      issues: [],
-      skipReason: "AI 返回 JSON 解析失败（可能被截断），本次跳过自动操作",
-    };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await callAnthropicJSON(systemPrompt, context, { maxTokens });
+    } catch (err) {
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      // 两次均失败：优雅降级，从错误消息中尝试提取 summary
+      const raw = err.message || "";
+      const summaryMatch = raw.match(/"summary"\s*:\s*"([^"]+)"/);
+      return {
+        summary: summaryMatch ? summaryMatch[1] : "AI 分析返回格式异常，已跳过",
+        actions: [],
+        issues: [],
+        skipReason: "AI 返回 JSON 解析失败（已重试两次），本次跳过自动操作",
+      };
+    }
   }
 }
 
