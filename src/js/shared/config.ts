@@ -2,11 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadEnv } from "./env.js";
 import { JPClawConfigSchema, validateConfig, validateEnvConfig } from "./config-schema.js";
-import type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig } from "./config-schema.js";
+import type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig, TelegramChannelConfig, TelegramBotConfig } from "./config-schema.js";
 import { JPClawError, ErrorCode } from "./errors.js";
 
 // 重新导出类型
-export type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig };
+export type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig, TelegramChannelConfig, TelegramBotConfig };
 
 const DEFAULT_CONFIG: JPClawConfig = {
   providers: [],
@@ -231,6 +231,50 @@ function mergeChannelEnv(channels: JPClawConfig["channels"]): JPClawConfig["chan
       token: process.env.WECOM_TOKEN,
       encodingAesKey: process.env.WECOM_ENCODING_AES_KEY,
       callbackDomain: process.env.WECOM_CALLBACK_DOMAIN
+    };
+  }
+
+  // Telegram 多 bot 支持（对标 Discord 的多 bot 模式）
+  const telegramBots: any[] = [];
+  const telegramBotTokenPattern = /^TELEGRAM_BOT(\d+)_TOKEN$/;
+  const telegramBotNumbers = new Set<number>();
+
+  for (const key in process.env) {
+    const match = key.match(telegramBotTokenPattern);
+    if (match) {
+      telegramBotNumbers.add(parseInt(match[1]));
+    }
+  }
+
+  if (telegramBotNumbers.size > 0) {
+    const proxyUrl = process.env.TELEGRAM_PROXY_URL;
+
+    for (const num of Array.from(telegramBotNumbers).sort((a, b) => a - b)) {
+      const token = process.env[`TELEGRAM_BOT${num}_TOKEN`];
+      const name = process.env[`TELEGRAM_BOT${num}_NAME`] || `bot${num}`;
+      const agentId = process.env[`TELEGRAM_BOT${num}_AGENT`];
+
+      if (token) {
+        telegramBots.push({
+          enabled: true,
+          token,
+          name,
+          agentId: agentId || undefined,
+          proxyUrl: proxyUrl || undefined
+        });
+      }
+    }
+
+    if (telegramBots.length > 0) {
+      next.telegram = telegramBots;
+    }
+  }
+  // 向后兼容：支持单个 TELEGRAM_BOT_TOKEN
+  else if (process.env.TELEGRAM_BOT_TOKEN) {
+    next.telegram = {
+      enabled: true,
+      token: process.env.TELEGRAM_BOT_TOKEN,
+      proxyUrl: process.env.TELEGRAM_PROXY_URL
     };
   }
 

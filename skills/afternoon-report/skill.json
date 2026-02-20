@@ -1,0 +1,9 @@
+{
+  "name": "afternoon-report",
+  "version": "1.0.0",
+  "description": "下午研究报告 - 基于兴趣的每日深度研究",
+  "emoji": "📚",
+  "requires": {
+    "env": ["ANTHROPIC_AUTH_TOKEN", "DISCORD_BOT1_TOKEN"]
+  }
+}

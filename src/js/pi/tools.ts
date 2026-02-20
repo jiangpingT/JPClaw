@@ -244,6 +244,7 @@ export function createSkillTemplate(options: CreateSkillTemplateOptions): {
   return { name: rawName };
 }
 
+
 /**
  * 扫描并获取所有可用的 skills
  * 从 skills/ 目录中读取每个 skill 的 SKILL.md 文件
@@ -277,7 +278,6 @@ function getAllSkills(): Array<{ name: string; description: string }> {
       const hasImpl = fs.existsSync(implPathTs) || fs.existsSync(implPathJs);
 
       if (!hasImpl) {
-        // 跳过没有实现的 skill（LLM 会使用其他工具如 web_search）
         console.log(`[Skills] Skipping ${entry.name}: no implementation (LLM-based skill, not registered as tool)`);
         continue;
       }

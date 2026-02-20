@@ -1,0 +1,9 @@
+{
+  "name": "proactive-coder",
+  "version": "1.0.0",
+  "description": "主动型程序员 - AI 驱动的代码改进与项目维护",
+  "emoji": "🤖",
+  "requires": {
+    "env": ["ANTHROPIC_AUTH_TOKEN", "DISCORD_BOT1_TOKEN"]
+  }
+}

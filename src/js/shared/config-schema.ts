@@ -57,6 +57,18 @@ const DiscordBotConfigSchema = ChannelConfigBaseSchema.extend({
   agentId: z.string().optional() // bot 专属的 agent ID（固定角色）
 });
 
+// Telegram 频道配置（单 bot 模式）
+const TelegramChannelConfigSchema = ChannelConfigBaseSchema.extend({
+  proxyUrl: z.string().optional() // Telegram API 代理地址
+});
+
+// Telegram Bot 配置（多 bot 模式，对标 DiscordBotConfigSchema）
+const TelegramBotConfigSchema = ChannelConfigBaseSchema.extend({
+  name: z.string().optional(), // bot 名称，用于区分不同的 bot
+  agentId: z.string().optional(), // bot 专属的 agent ID（固定角色）
+  proxyUrl: z.string().optional() // Telegram API 代理地址
+});
+
 // 企业微信频道配置
 const WecomChannelConfigSchema = ChannelConfigBaseSchema.extend({
   corpId: z.string().optional(),
@@ -72,7 +84,11 @@ const ChannelsConfigSchema = z.object({
     z.array(DiscordBotConfigSchema) // 新功能：多个 bot 配置
   ]).optional(),
   feishu: ChannelConfigBaseSchema.optional(),
-  wecom: WecomChannelConfigSchema.optional()
+  wecom: WecomChannelConfigSchema.optional(),
+  telegram: z.union([
+    TelegramChannelConfigSchema, // 向后兼容：单个 bot 配置
+    z.array(TelegramBotConfigSchema) // 新功能：多个 bot 配置
+  ]).optional()
 });
 
 // IP 地址验证正则
@@ -104,6 +120,8 @@ export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type ChannelConfig = z.infer<typeof ChannelConfigBaseSchema>;
 export type DiscordBotConfig = z.infer<typeof DiscordBotConfigSchema>;
 export type WecomChannelConfig = z.infer<typeof WecomChannelConfigSchema>;
+export type TelegramChannelConfig = z.infer<typeof TelegramChannelConfigSchema>;
+export type TelegramBotConfig = z.infer<typeof TelegramBotConfigSchema>;
 
 /**
  * 验证配置并返回友好的错误信息

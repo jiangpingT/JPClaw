@@ -1,66 +1,37 @@
 ---
 name: apple-notes
-description: Apple 备忘录管理工具。通过 osascript JXA 在 macOS 上管理苹果备忘录，支持列出、搜索、创建、读取、删除笔记，支持按文件夹过滤。适用于"添加备忘录"、"查看笔记"、"搜索XX笔记"、"新建备忘录"等查询。仅支持 macOS，需授予终端自动化控制 Notes.app 的权限。
+description: Apple 备忘录管理工具。在 macOS 上管理苹果备忘录（Apple Notes），支持列出笔记、查看文件夹、按名称搜索、读取笔记内容。适用于"查看备忘录"、"列出笔记"、"搜索XX笔记"、"查看笔记内容"等请求。仅支持 macOS，需授予终端自动化控制 Notes.app 的权限。依赖：memo（brew install antoniorodr/memo/memo）。
 metadata:
   {
     "openclaw":
       {
         "emoji": "📝",
         "os": ["darwin"],
-        "requires": { "bins": ["osascript"] }
+        "requires": { "bins": ["memo"] }
       }
   }
 ---
 
-# Apple Notes CLI
+# Apple Notes
 
-Use `memo notes` to manage Apple Notes directly from the terminal. Create, view, edit, delete, search, move notes between folders, and export to HTML/Markdown.
+通过 memo CLI 操作 macOS 备忘录。
 
-Setup
+## 输入
 
-- Install (Homebrew): `brew tap antoniorodr/memo && brew install antoniorodr/memo/memo`
-- Manual (pip): `pip install .` (after cloning the repo)
-- macOS-only; if prompted, grant Automation access to Notes.app.
+JSON 字符串，包含 `action` 字段：
 
-View Notes
+```json
+{"action": "list"}
+{"action": "list", "folder": "Notes"}
+{"action": "folders"}
+{"action": "read", "noteName": "笔记标题"}
+{"action": "read", "index": 3}
+{"action": "search", "query": "关键词"}
+```
 
-- List all notes: `memo notes`
-- Filter by folder: `memo notes -f "Folder Name"`
-- Search notes (fuzzy): `memo notes -s "query"`
+## 支持的操作
 
-Create Notes
-
-- Add a new note: `memo notes -a`
-  - Opens an interactive editor to compose the note.
-- Quick add with title: `memo notes -a "Note Title"`
-
-Edit Notes
-
-- Edit existing note: `memo notes -e`
-  - Interactive selection of note to edit.
-
-Delete Notes
-
-- Delete a note: `memo notes -d`
-  - Interactive selection of note to delete.
-
-Move Notes
-
-- Move note to folder: `memo notes -m`
-  - Interactive selection of note and destination folder.
-
-Export Notes
-
-- Export to HTML/Markdown: `memo notes -ex`
-  - Exports selected note; uses Mistune for markdown processing.
-
-Limitations
-
-- Cannot edit notes containing images or attachments.
-- Interactive prompts may require terminal access.
-
-Notes
-
-- macOS-only.
-- Requires Apple Notes.app to be accessible.
-- For automation, grant permissions in System Settings > Privacy & Security > Automation.
+- `list` - 列出所有备忘录（默认）
+- `folders` - 列出所有文件夹
+- `read` - 读取指定笔记内容（通过 noteName 或 index）
+- `search` - 按标题关键词搜索备忘录

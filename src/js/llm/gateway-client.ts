@@ -30,11 +30,13 @@ export interface GatewayConfig {
 }
 
 /**
- * 消息内容块（支持文本和图片）
+ * 消息内容块（支持文本、图片、音频/视频等任意媒体）
  */
 export type MessageContent =
   | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } };
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "input_audio"; input_audio: { data: string; format: "wav" | "mp3" } }
+  | { type: "inline_data"; inline_data: { mime_type: string; data: string } };
 
 /**
  * 聊天消息
@@ -93,24 +95,32 @@ export class LLMGatewayClient {
 
   constructor(config: GatewayConfig = {}) {
     // 优先使用传入的配置，其次使用环境变量，最后使用默认值
+    // 同时兼容 LLM_GATEWAY_BASE_URL 和 MININGLAMP_GATEWAY_BASE_URL
     this.baseUrl =
       config.baseUrl ||
       process.env.LLM_GATEWAY_BASE_URL ||
+      process.env.MININGLAMP_GATEWAY_BASE_URL ||
       "https://llm-guard.mininglamp.com";
 
-    // P0-NEW-1修复: 删除硬编码API密钥，强制从环境变量读取
+    // 同时兼容 LLM_GATEWAY_API_KEY 和 MININGLAMP_GATEWAY_API_KEY
     this.apiKey =
       config.apiKey ||
       process.env.LLM_GATEWAY_API_KEY ||
+      process.env.MININGLAMP_GATEWAY_API_KEY ||
       "";
 
     if (!this.apiKey) {
       log("warn", "llm.gateway.no_api_key", {
-        message: "LLM_GATEWAY_API_KEY not configured, API calls will fail"
+        message: "LLM_GATEWAY_API_KEY / MININGLAMP_GATEWAY_API_KEY not configured, API calls will fail"
       });
     }
 
-    this.defaultModel = config.defaultModel || process.env.LLM_GATEWAY_MODEL || "gpt-4o";
+    // 同时兼容 LLM_GATEWAY_MODEL 和 MININGLAMP_GATEWAY_LLM_MODEL
+    this.defaultModel =
+      config.defaultModel ||
+      process.env.LLM_GATEWAY_MODEL ||
+      process.env.MININGLAMP_GATEWAY_LLM_MODEL ||
+      "gpt-4o";
 
     // P0-NEW-4修复: 超时值解析添加范围检查
     const rawTimeout = config.timeout || Number(process.env.LLM_GATEWAY_TIMEOUT || "30000");

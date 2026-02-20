@@ -18,6 +18,7 @@ import { handleWecomWebhook, sendWecomPing } from "../channels/wecom.js";
 import { listSkills, listAgentSkills, runSkill } from "../skills/registry.js";
 import { VoiceWakeService } from "../voice/wake.js";
 import { startDiscordChannel } from "../channels/discord.js";
+import { startTelegramChannel } from "../channels/telegram.js";
 import { MultiAgentRouter } from "../agents/router.js";
 import { FixedAgentEngine } from "../agents/fixed-agent-engine.js";
 import { startScheduler } from "../scheduler/runner.js";
@@ -246,6 +247,9 @@ export async function startGateway(): Promise<ShutdownFunction> {
 
   // 兼容旧代码：使用第一个 bot 作为默认 discord 实例
   const discord = discordBots[0];
+
+  // Telegram 渠道（Polling 模式）
+  const telegram = startTelegramChannel(config.channels.telegram, engine);
 
   const heartbeat = new HeartbeatService({
     enabled: process.env.JPCLAW_HEARTBEAT_ENABLED === "true",
@@ -479,6 +483,7 @@ export async function startGateway(): Promise<ShutdownFunction> {
                   index: idx,
                   status: bot.getStatus()
                 })),
+            telegram: telegram.getStatus(),
             memory: process.memoryUsage(),
             cpu: process.cpuUsage()
           },
@@ -806,6 +811,31 @@ export async function startGateway(): Promise<ShutdownFunction> {
       return;
     }
 
+    // 临时帧文件服务（供 Vision API 下载，frpc 转发到公网）
+    if (req.method === "GET" && (req.url || "").startsWith("/tmp-frames/")) {
+      try {
+        const filename = (req.url || "").split("/tmp-frames/")[1]?.split("?")[0] || "";
+        // 安全校验：只允许字母/数字/连字符/下划线/点，防止路径穿越
+        if (!filename || !/^[\w\-]+\.jpg$/.test(filename)) {
+          safeResponse(400, { error: "invalid_filename" });
+          return;
+        }
+        const filePath = path.join(process.cwd(), "tmp", "telegram-attachments", filename);
+        const realPath = path.resolve(filePath);
+        const allowedDir = path.resolve(process.cwd(), "tmp", "telegram-attachments");
+        if (!realPath.startsWith(allowedDir)) {
+          safeResponse(403, { error: "forbidden" });
+          return;
+        }
+        const fileBuffer = await fs.promises.readFile(realPath);
+        res.writeHead(200, { "Content-Type": "image/jpeg", "Content-Length": fileBuffer.length });
+        res.end(fileBuffer);
+      } catch {
+        safeResponse(404, { error: "tmp_frame_not_found" });
+      }
+      return;
+    }
+
     safeResponse(404, { error: "not_found" });
   });
 
@@ -1002,7 +1032,14 @@ export async function startGateway(): Promise<ShutdownFunction> {
       });
       wss.close();
 
-      // 3. Discord 连接状态记录（P0-10改进：记录最终状态）
+      // 3. 停止 Telegram polling
+      if (telegram.getStatus().enabled) {
+        console.log("  • 停止 Telegram polling...");
+        telegram.stop();
+        log("info", "gateway.shutdown.telegram_stopped");
+      }
+
+      // 4. Discord 连接状态记录（P0-10改进：记录最终状态）
       if (discordBots.length > 0) {
         console.log("  • Discord Bots 将自动断开连接...");
         discordBots.forEach((bot, idx) => {

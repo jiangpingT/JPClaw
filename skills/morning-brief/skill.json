@@ -1,0 +1,9 @@
+{
+  "name": "morning-brief",
+  "version": "1.0.0",
+  "description": "晨间简报生成与推送",
+  "emoji": "📰",
+  "requires": {
+    "env": ["ANTHROPIC_AUTH_TOKEN", "DISCORD_BOT1_TOKEN"]
+  }
+}

@@ -1,278 +1,113 @@
 /**
- * apple-reminders - 通过 osascript JXA 操作 macOS 提醒事项
- * 无需安装第三方 CLI，依赖 macOS 内置 osascript
- *
- * 权限：系统设置 → 隐私与安全 → 提醒事项，授予终端访问权限
+ * apple-reminders - 通过 remindctl CLI 操作 macOS 提醒事项
+ * 依赖：brew install steipete/tap/remindctl
  */
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
-// ─── osascript 执行器 ────────────────────────────────────────────────────────
+const execFileAsync = promisify(execFile);
+const REMINDCTL = '/opt/homebrew/bin/remindctl';
 
-function runJXA(script) {
-  return new Promise((resolve, reject) => {
-    const child = exec(
-      'osascript -l JavaScript',
-      { timeout: 15000, maxBuffer: 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error((stderr || error.message).trim()));
-        } else {
-          resolve(stdout.trim());
-        }
-      }
-    );
-    child.stdin.write(script);
-    child.stdin.end();
+async function rc(args) {
+  const { stdout } = await execFileAsync(REMINDCTL, [...args, '--no-color', '--no-input'], {
+    timeout: 30000
   });
+  return stdout.trim();
 }
 
-// ─── 输入解析 ────────────────────────────────────────────────────────────────
-
-function parseInput(raw) {
-  const text = String(raw ?? '').trim();
-  if (!text) return { action: 'today' };
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { action: 'today', query: text };
-  }
+async function rcJSON(args) {
+  const raw = await rc([...args, '--json']);
+  return JSON.parse(raw || '[]');
 }
 
-// ─── JXA 脚本生成 ────────────────────────────────────────────────────────────
-
-function jxaListLists() {
-  return `
-    const app = Application('Reminders');
-    const lists = app.lists().map(l => {
-      const pending = l.reminders.whose({ completed: false })().length;
-      return { id: l.id(), name: l.name(), pending };
-    });
-    JSON.stringify(lists);
-  `;
+function formatList(l) {
+  return `- ${l.title}（${l.reminderCount} 条，${l.overdueCount} 条过期）`;
 }
-
-function jxaGetReminders(listName, filter) {
-  // listName 和 filter 均通过 JSON.stringify 安全嵌入
-  return `
-    const app = Application('Reminders');
-    const listName = ${JSON.stringify(listName || '')};
-    const filter   = ${JSON.stringify(filter || 'pending')};
-
-    const now        = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd   = new Date(todayStart.getTime() + 86400000);
-    const weekEnd    = new Date(todayStart.getTime() + 7 * 86400000);
-
-    const targetLists = listName
-      ? (() => { try { return [app.lists.byName(listName)]; } catch(e) { return []; } })()
-      : app.lists();
-
-    const results = [];
-    for (const list of targetLists) {
-      let reminders;
-      try { reminders = list.reminders(); } catch(e) { continue; }
-
-      for (const r of reminders) {
-        const completed = r.completed();
-        const dueDate   = r.dueDate() ? r.dueDate().toISOString() : null;
-
-        if (filter === 'today') {
-          if (completed) continue;
-          if (!dueDate) continue;
-          const d = new Date(dueDate);
-          if (d < todayStart || d >= todayEnd) continue;
-        } else if (filter === 'upcoming') {
-          if (completed) continue;
-          if (!dueDate) continue;
-          const d = new Date(dueDate);
-          if (d < now || d >= weekEnd) continue;
-        } else if (filter === 'overdue') {
-          if (completed) continue;
-          if (!dueDate) continue;
-          if (new Date(dueDate) >= todayStart) continue;
-        } else if (filter === 'pending') {
-          if (completed) continue;
-        } else if (filter === 'completed') {
-          if (!completed) continue;
-        }
-        // filter === 'all'：不过滤
-
-        results.push({
-          id:        r.id(),
-          name:      r.name(),
-          listName:  list.name(),
-          completed,
-          dueDate
-        });
-      }
-    }
-    JSON.stringify(results);
-  `;
-}
-
-function jxaCreateReminder(title, listName, due) {
-  return `
-    const app      = Application('Reminders');
-    const listName = ${JSON.stringify(listName || '')};
-    const title    = ${JSON.stringify(title)};
-    const dueStr   = ${JSON.stringify(due || '')};
-
-    let targetList;
-    if (listName) {
-      try { targetList = app.lists.byName(listName); }
-      catch(e) { throw new Error('列表不存在：' + listName); }
-    } else {
-      targetList = app.defaultList();
-    }
-
-    const props = { name: title };
-    if (dueStr) props.dueDate = new Date(dueStr);
-
-    app.make({ new: 'reminder', at: targetList.reminders, withProperties: props });
-    JSON.stringify({ success: true, list: targetList.name() });
-  `;
-}
-
-function jxaCompleteReminder(reminderId, reminderName, listName) {
-  return `
-    const app          = Application('Reminders');
-    const reminderId   = ${JSON.stringify(reminderId || '')};
-    const reminderName = ${JSON.stringify(reminderName || '')};
-    const listName     = ${JSON.stringify(listName || '')};
-
-    const targetLists = listName
-      ? (() => { try { return [app.lists.byName(listName)]; } catch(e) { return []; } })()
-      : app.lists();
-
-    let found = false;
-    outer: for (const list of targetLists) {
-      const reminders = list.reminders();
-      for (const r of reminders) {
-        const match = reminderId ? r.id() === reminderId : r.name() === reminderName;
-        if (match) {
-          r.completed = true;
-          found = true;
-          break outer;
-        }
-      }
-    }
-    JSON.stringify({ success: found });
-  `;
-}
-
-function jxaDeleteReminder(reminderId, reminderName, listName) {
-  return `
-    const app          = Application('Reminders');
-    const reminderId   = ${JSON.stringify(reminderId || '')};
-    const reminderName = ${JSON.stringify(reminderName || '')};
-    const listName     = ${JSON.stringify(listName || '')};
-
-    const targetLists = listName
-      ? (() => { try { return [app.lists.byName(listName)]; } catch(e) { return []; } })()
-      : app.lists();
-
-    let found = false;
-    outer: for (const list of targetLists) {
-      const reminders = list.reminders();
-      for (const r of reminders) {
-        const match = reminderId ? r.id() === reminderId : r.name() === reminderName;
-        if (match) {
-          app.delete(r);
-          found = true;
-          break outer;
-        }
-      }
-    }
-    JSON.stringify({ success: found });
-  `;
-}
-
-// ─── 输出格式化 ──────────────────────────────────────────────────────────────
 
 function formatReminder(r) {
-  const check = r.completed ? '[x]' : '[ ]';
-  const due   = r.dueDate
-    ? `  到期：${new Date(r.dueDate).toLocaleString('zh-CN')}`
+  const check = r.isCompleted ? '[x]' : '[ ]';
+  const due = r.dueDate
+    ? `\n  到期：${new Date(r.dueDate).toLocaleString('zh-CN')}`
     : '';
-  return `${check} ${r.name}${due ? '\n' + due : ''}\n    列表：${r.listName}`;
+  return `${check} ${r.title}${due}\n    列表：${r.listName}`;
 }
-
-function handlePermissionError(err) {
-  const msg = err.message || '';
-  if (
-    msg.includes('not authorized') ||
-    msg.includes('-1743') ||
-    msg.includes('not allowed') ||
-    msg.includes('权限')
-  ) {
-    return '权限不足。请在 系统设置 → 隐私与安全 → 提醒事项 中授予终端访问权限，然后重试。';
-  }
-  return null;
-}
-
-// ─── 主入口 ──────────────────────────────────────────────────────────────────
 
 export async function run(input) {
-  const params = parseInput(input);
+  let params;
+  const text = String(input ?? '').trim();
+  if (!text) {
+    params = { action: 'today' };
+  } else {
+    try {
+      params = JSON.parse(text);
+    } catch {
+      params = { action: 'today', query: text };
+    }
+  }
+
   const action = String(params.action || 'today').toLowerCase();
 
   try {
-    // 列出清单
     if (action === 'lists') {
-      const raw   = await runJXA(jxaListLists());
-      const lists = JSON.parse(raw);
+      const lists = await rcJSON(['list']);
       if (!lists.length) return '没有找到任何提醒事项清单。';
-      const lines = lists.map(l => `- ${l.name}（${l.pending} 条未完成）`);
-      return `提醒事项清单（共 ${lists.length} 个）：\n${lines.join('\n')}`;
+      return `提醒事项清单（共 ${lists.length} 个）：\n${lists.map(formatList).join('\n')}`;
     }
 
-    // 查询提醒
-    const filterMap = {
-      today: 'today', upcoming: 'upcoming', overdue: 'overdue',
-      pending: 'pending', completed: 'completed', all: 'all',
-      list: params.filter || 'pending'
-    };
-    if (filterMap[action] !== undefined) {
-      const raw       = await runJXA(jxaGetReminders(params.listName, filterMap[action]));
-      const reminders = JSON.parse(raw);
+    const showFilters = ['today', 'tomorrow', 'week', 'overdue', 'upcoming', 'completed', 'all'];
+    const filterAlias = { pending: 'all' };
+    const filter = filterAlias[action] ?? (showFilters.includes(action) ? action : null);
+
+    if (filter !== null) {
+      const args = ['show', filter];
+      if (params.listName) args.push('--list', params.listName);
+      let reminders = await rcJSON(args);
+      if (action === 'pending') reminders = reminders.filter(r => !r.isCompleted);
       if (!reminders.length) return '没有找到符合条件的提醒事项。';
-      const lines = reminders.map(formatReminder);
-      return `找到 ${reminders.length} 条提醒：\n\n${lines.join('\n\n')}`;
+      return `找到 ${reminders.length} 条提醒：\n\n${reminders.map(formatReminder).join('\n\n')}`;
     }
 
-    // 创建提醒
+    if (action === 'list') {
+      if (!params.listName) return '需要提供 listName 参数。';
+      const reminders = await rcJSON(['list', params.listName]);
+      if (!reminders.length) return `清单「${params.listName}」没有提醒事项。`;
+      return `「${params.listName}」共 ${reminders.length} 条：\n\n${reminders.map(formatReminder).join('\n\n')}`;
+    }
+
     if (action === 'create') {
       if (!params.title) return '创建提醒需要 title 参数。';
-      const raw  = await runJXA(jxaCreateReminder(params.title, params.listName, params.due));
-      const data = JSON.parse(raw);
-      const due  = params.due ? `，到期：${new Date(params.due).toLocaleString('zh-CN')}` : '';
-      return data.success
-        ? `已创建提醒：「${params.title}」（清单：${data.list}）${due}`
-        : '创建失败。';
+      const args = ['add', params.title];
+      if (params.listName) args.push('--list', params.listName);
+      if (params.due) args.push('--due', params.due);
+      if (params.notes) args.push('--notes', params.notes);
+      await rc(args);
+      const due = params.due ? `，到期：${new Date(params.due).toLocaleString('zh-CN')}` : '';
+      const list = params.listName ? `（清单：${params.listName}）` : '';
+      return `已创建提醒：「${params.title}」${list}${due}`;
     }
 
-    // 完成提醒
     if (action === 'complete') {
       if (!params.reminderId && !params.reminderName) return '需要提供 reminderId 或 reminderName。';
-      const raw  = await runJXA(jxaCompleteReminder(params.reminderId, params.reminderName, params.listName));
-      const data = JSON.parse(raw);
-      const label = params.reminderName || params.reminderId;
-      return data.success ? `已完成提醒：「${label}」` : `未找到提醒：「${label}」`;
+      const id = params.reminderId || params.reminderName;
+      await rc(['complete', id]);
+      return `已完成提醒：「${id}」`;
     }
 
-    // 删除提醒
     if (action === 'delete') {
       if (!params.reminderId && !params.reminderName) return '需要提供 reminderId 或 reminderName。';
-      const raw  = await runJXA(jxaDeleteReminder(params.reminderId, params.reminderName, params.listName));
-      const data = JSON.parse(raw);
-      const label = params.reminderName || params.reminderId;
-      return data.success ? `已删除提醒：「${label}」` : `未找到提醒：「${label}」`;
+      const id = params.reminderId || params.reminderName;
+      await rc(['delete', id, '--force']);
+      return `已删除提醒：「${id}」`;
     }
 
-    return `不支持的操作：${action}。\n支持：lists / today / upcoming / overdue / pending / completed / all / list / create / complete / delete`;
+    return `不支持的操作：${action}。\n支持：lists / today / tomorrow / week / upcoming / overdue / pending / completed / all / list / create / complete / delete`;
 
   } catch (err) {
-    return handlePermissionError(err) || `执行失败：${err.message}`;
+    const msg = err.message || '';
+    if (msg.includes('not authorized') || msg.includes('-1743') || msg.includes('permission')) {
+      return '权限不足。请在 系统设置 → 隐私与安全 → 提醒事项 中授予终端访问权限，然后重试。';
+    }
+    return `执行失败：${msg}`;
   }
 }

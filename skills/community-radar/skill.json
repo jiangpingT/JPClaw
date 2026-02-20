@@ -1,0 +1,9 @@
+{
+  "name": "community-radar",
+  "version": "1.0.0",
+  "description": "社区雷达 - 近30天社区讨论分析",
+  "emoji": "📡",
+  "requires": {
+    "env": ["ANTHROPIC_AUTH_TOKEN", "DISCORD_BOT1_TOKEN"]
+  }
+}

@@ -1,0 +1,430 @@
+/**
+ * Proactive Coder (主动型程序员) Skill
+ *
+ * AI 驱动的项目夜间值班程序员。
+ * 扫描项目状态 → AI 自主判断改进项 → 在安全边界内执行 → 创建 Draft PR → Discord 通知。
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import {
+  sh, safeExec, todayString, isPathSafe,
+  callAnthropicJSON, sendToDiscord, sendToTelegram,
+} from "../_shared/proactive-utils.js";
+
+// ─── 配置 ────────────────────────────────────────────────────────────────────
+
+const DEFAULT_CHANNEL_ID = "1469204772379693222";
+const DEFAULT_DEPTH = "standard";
+
+// 安全边界：禁止操作的文件模式（精确匹配）
+const FORBIDDEN_PATTERNS = [
+  /(?:^|\/)\.env(?:\.|$)/i,
+  /(?:^|\/)credentials(?:\.|\/|$)/i,
+  /(?:^|\/)\.npmrc$/i,
+  /(?:^|\/)\.ssh\//i,
+  /(?:^|\/)secrets?\//i,
+  /(?:^|\/)\.github\/workflows/i,
+  /(?:^|\/)\.gitlab-ci/i,
+  /(?:^|\/)Jenkinsfile/i,
+  /(?:^|\/)docker-compose.*\.ya?ml/i,
+  /(?:^|\/)Dockerfile/i,
+];
+
+// 关键文件列表（用于项目上下文收集）
+const CONTEXT_FILES = [
+  "CLAUDE.md", "ARCHITECTURE.md", "README.md",
+  "package.json", "tsconfig.json", "CHANGELOG.md", "mission.md",
+];
+
+const DEPTH_LOG_LIMIT = { quick: 5, standard: 15, deep: 30 };
+
+// ─── 工具函数 ────────────────────────────────────────────────────────────────
+
+function isForbiddenFile(filePath) {
+  return FORBIDDEN_PATTERNS.some((re) => re.test(filePath));
+}
+
+// ─── 项目扫描 ────────────────────────────────────────────────────────────────
+
+async function scanProject(projectPath, depth) {
+  const logLimit = DEPTH_LOG_LIMIT[depth] || DEPTH_LOG_LIMIT.standard;
+  const cwd = projectPath;
+
+  const [gitStatus, gitLog, gitDiff, gitBranch, gitRemote] =
+    await Promise.allSettled([
+      sh("git status --short", { cwd }),
+      sh(`git log --oneline -${logLimit} --no-decorate`, { cwd }),
+      sh("git diff --stat HEAD~3..HEAD", { cwd, allowFail: true }),
+      sh("git branch --show-current", { cwd }),
+      sh("git remote get-url origin", { cwd, allowFail: true }),
+    ]);
+
+  const contextFiles = {};
+  for (const fileName of CONTEXT_FILES) {
+    const filePath = path.join(projectPath, fileName);
+    try {
+      if (fs.existsSync(filePath)) {
+        contextFiles[fileName] = fs.readFileSync(filePath, "utf-8").slice(0, 3000);
+      }
+    } catch {}
+  }
+
+  const statusOutput = gitStatus.status === "fulfilled" ? gitStatus.value : "";
+
+  return {
+    projectPath,
+    currentBranch: gitBranch.status === "fulfilled" ? gitBranch.value : "unknown",
+    remoteUrl: gitRemote.status === "fulfilled" ? gitRemote.value : "unknown",
+    gitStatus: statusOutput,
+    gitLog: gitLog.status === "fulfilled" ? gitLog.value : "",
+    gitDiff: gitDiff.status === "fulfilled" ? gitDiff.value : "",
+    hasUncommittedChanges: statusOutput.length > 0,
+    contextFiles,
+  };
+}
+
+// ─── AI 分析 ─────────────────────────────────────────────────────────────────
+
+async function analyzeWithAI(projectScan, depth) {
+  const depthInstruction = {
+    quick: "只看最明显的问题，最多给出 2 个行动建议。",
+    standard: "全面审查，给出 3-5 个行动建议。",
+    deep: "深入分析每个细节，给出尽可能多的改进建议。",
+  };
+
+  const systemPrompt = `你是「阿策」，一个 AI 驱动的夜间值班程序员。你的角色是在项目所有者休息时，审视项目状态并做出有价值的改进。
+
+## 你的工作原则
+
+1. **只做有把握的改进** - 不确定的事情创建 Issue 讨论，不要直接改
+2. **优先级排序**：P0 bug修复 > P1 代码质量 > P2 文档完善 > P3 性能优化
+3. **安全第一** - 绝不修改 .env、凭证文件、CI/CD 配置
+4. **最小改动** - 每个改动保持聚焦，不要一次改太多
+5. **清晰说明** - 每个行动都要有明确的理由
+
+## 分析深度
+
+${depthInstruction[depth] || depthInstruction.standard}
+
+## 你可以做的事情
+
+- **修复代码问题**：明确的 bug、类型错误、未处理的边界情况
+- **改进代码质量**：减少重复代码、改善命名、简化复杂逻辑
+- **完善文档**：更新过时文档、补充缺失说明、修复文档错误
+- **添加测试**：为未覆盖的关键路径添加测试
+- **清理代码**：删除死代码、未使用的导入、过时的注释
+
+## 你不能做的事情
+
+- 修改 .env 或任何凭证文件
+- 修改 CI/CD 配置（GitHub Actions、GitLab CI 等）
+- 修改 Dockerfile 或 docker-compose
+- 引入新的依赖包
+- 做大规模重构
+- 修改核心架构
+
+## 输出格式
+
+请严格返回 JSON（不要包含 markdown 代码块标记）：
+
+{
+  "summary": "一句话总结项目当前状态",
+  "actions": [
+    {
+      "type": "fix" | "improve" | "docs" | "test" | "issue",
+      "priority": "P0" | "P1" | "P2" | "P3",
+      "title": "简短标题",
+      "description": "详细描述要做什么以及为什么",
+      "files": [
+        {
+          "path": "相对文件路径",
+          "action": "create" | "modify",
+          "content": "完整的文件内容"
+        }
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "title": "Issue 标题",
+      "body": "Issue 详细描述",
+      "labels": ["bug" | "enhancement" | "documentation"]
+    }
+  ],
+  "skipReason": "如果没有值得改进的地方，说明原因"
+}`;
+
+  const contextParts = [];
+  contextParts.push(`## 项目路径\n${projectScan.projectPath}`);
+  contextParts.push(`## 当前分支\n${projectScan.currentBranch}`);
+
+  if (projectScan.hasUncommittedChanges) {
+    contextParts.push(
+      `## ⚠️ 工作区状态（有未提交的更改）\n\`\`\`\n${projectScan.gitStatus}\n\`\`\`\n注意：工作区不干净，请只建议创建 Issue，不要建议直接修改文件。`
+    );
+  } else {
+    contextParts.push(`## 工作区状态\n干净（无未提交更改）`);
+  }
+
+  contextParts.push(`## 最近提交记录\n\`\`\`\n${projectScan.gitLog}\n\`\`\``);
+  if (projectScan.gitDiff) {
+    contextParts.push(`## 最近变更统计\n\`\`\`\n${projectScan.gitDiff}\n\`\`\``);
+  }
+  for (const [fileName, content] of Object.entries(projectScan.contextFiles)) {
+    contextParts.push(`## 文件: ${fileName}\n\`\`\`\n${content}\n\`\`\``);
+  }
+
+  const maxTokens = depth === "deep" ? 8192 : depth === "quick" ? 2048 : 4096;
+
+  return callAnthropicJSON(systemPrompt, contextParts.join("\n\n"), { maxTokens });
+}
+
+// ─── 执行行动 ────────────────────────────────────────────────────────────────
+
+async function executeActions(projectPath, analysis, dryRun) {
+  const date = todayString();
+  const branchName = `jpclaw/proactive-${date}-${Date.now()}`;
+  const results = { actions: [], issues: [], prUrl: null };
+
+  const fileActions = (analysis.actions || []).filter(
+    (a) => a.type !== "issue" && a.files && a.files.length > 0
+  );
+  const hasFileActions = fileActions.length > 0;
+
+  if (dryRun) {
+    for (const action of fileActions) {
+      results.actions.push({
+        type: action.type, title: action.title, status: "dry_run",
+        files: (action.files || []).map((f) => f.path),
+      });
+    }
+    for (const issue of analysis.issues || []) {
+      results.issues.push({ title: issue.title, status: "dry_run" });
+    }
+    return results;
+  }
+
+  const cwd = projectPath;
+
+  if (hasFileActions) {
+    // 创建特性分支
+    await sh("git checkout main", { cwd, allowFail: true });
+    await sh("git pull --rebase origin main", { cwd, allowFail: true });
+    await sh(`git checkout -b ${branchName}`, { cwd });
+
+    for (const action of fileActions) {
+      const actionResult = {
+        type: action.type, title: action.title, status: "pending", files: [],
+      };
+
+      try {
+        const safeFiles = [];
+        for (const file of action.files || []) {
+          // [P0] 安全检查：禁止文件
+          if (isForbiddenFile(file.path)) {
+            actionResult.files.push({ path: file.path, status: "skipped", reason: "文件在禁止列表中" });
+            continue;
+          }
+          // [P0] 安全检查：路径遍历
+          if (!isPathSafe(projectPath, file.path)) {
+            actionResult.files.push({ path: file.path, status: "skipped", reason: "路径遍历：超出项目范围" });
+            continue;
+          }
+
+          const fullPath = path.resolve(projectPath, file.path);
+          const dir = path.dirname(fullPath);
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(fullPath, file.content, "utf-8");
+          actionResult.files.push({ path: file.path, status: "done" });
+          safeFiles.push(file.path);
+        }
+
+        // [P0] 使用 safeExec 避免命令注入
+        if (safeFiles.length > 0) {
+          await safeExec("git", ["add", ...safeFiles], { cwd });
+
+          const commitMsg = `proactive: ${action.title}\n\n${action.description || ""}\n\nCo-Authored-By: JPClaw Proactive Coder <noreply@jpclaw.dev>`;
+          await safeExec("git", ["commit", "-m", commitMsg], { cwd, allowFail: true });
+          actionResult.status = "committed";
+        }
+      } catch (err) {
+        actionResult.status = "failed";
+        actionResult.error = err.message;
+      }
+
+      results.actions.push(actionResult);
+    }
+
+    // [P0] 推送 + 创建 Draft PR，使用 safeExec
+    try {
+      await safeExec("git", ["push", "-u", "origin", branchName], { cwd });
+
+      const prBody = buildPRDescription(analysis, results);
+      const prTitle = `[Proactive] ${date} AI 代码改进`;
+      const prOutput = await safeExec(
+        "gh", ["pr", "create", "--draft", "--title", prTitle, "--body", prBody, "--base", "main"],
+        { cwd, allowFail: true }
+      );
+
+      const urlMatch = prOutput.match(/https:\/\/github\.com\/\S+/);
+      results.prUrl = urlMatch ? urlMatch[0] : prOutput;
+    } catch (err) {
+      results.pushError = err.message;
+    }
+
+    await sh("git checkout main", { cwd, allowFail: true });
+  }
+
+  // [P0] 创建 Issues，使用 safeExec
+  for (const issue of analysis.issues || []) {
+    try {
+      const args = ["issue", "create", "--title", issue.title, "--body", issue.body || ""];
+      const labels = (issue.labels || []).join(",");
+      if (labels) args.push("--label", labels);
+
+      const issueOutput = await safeExec("gh", args, { cwd, allowFail: true });
+      const urlMatch = issueOutput.match(/https:\/\/github\.com\/\S+/);
+      results.issues.push({
+        title: issue.title, status: "created",
+        url: urlMatch ? urlMatch[0] : issueOutput,
+      });
+    } catch (err) {
+      results.issues.push({ title: issue.title, status: "failed", error: err.message });
+    }
+  }
+
+  return results;
+}
+
+function buildPRDescription(analysis, results) {
+  const lines = [];
+  lines.push("## 主动型程序员 - AI 自动改进报告");
+  lines.push("");
+  lines.push(`**日期**: ${todayString()}`);
+  lines.push(`**状态总结**: ${analysis.summary || "无"}`);
+  lines.push("");
+  lines.push("### 执行的改动");
+  lines.push("");
+  for (const action of results.actions) {
+    const emoji = action.status === "committed" ? "✅" : action.status === "failed" ? "❌" : "⏭️";
+    lines.push(`${emoji} **[${action.type}]** ${action.title}`);
+    if (action.files) {
+      for (const f of action.files) {
+        lines.push(`  - \`${f.path || f}\` (${f.status || "planned"})`);
+      }
+    }
+  }
+  lines.push("");
+  lines.push("---");
+  lines.push("*由 JPClaw 主动型程序员自动生成*");
+  return lines.join("\n");
+}
+
+function buildDiscordReport(date, projectResults, dryRun) {
+  const lines = [];
+  lines.push(`🤖 **主动型程序员报告${dryRun ? " [DRY RUN]" : ""}** | ${date}`);
+  lines.push("");
+
+  for (const proj of projectResults) {
+    lines.push(`📂 **${path.basename(proj.path)}**`);
+    if (proj.summary) lines.push(`> ${proj.summary}`);
+    if (proj.skipReason) { lines.push(`⏭️ 跳过: ${proj.skipReason}`, ""); continue; }
+
+    if (proj.actions?.length > 0) {
+      lines.push("**执行的行动:**");
+      for (const a of proj.actions) {
+        const emoji = a.status === "committed" || a.status === "done" ? "✅" : a.status === "dry_run" ? "🔍" : a.status === "failed" ? "❌" : "⏳";
+        lines.push(`${emoji} [${a.type}] ${a.title}`);
+      }
+    }
+    if (proj.issues?.length > 0) {
+      lines.push("**创建的 Issue:**");
+      for (const i of proj.issues) {
+        const emoji = i.status === "created" ? "📋" : i.status === "dry_run" ? "🔍" : "❌";
+        lines.push(`${emoji} ${i.title}${i.url ? ` - ${i.url}` : ""}`);
+      }
+    }
+    if (proj.prUrl) lines.push(`\n🔗 **Draft PR**: ${proj.prUrl}`);
+    if (proj.error) lines.push(`❌ 错误: ${proj.error}`);
+    lines.push("");
+  }
+
+  lines.push("---", "JPClaw 主动型程序员 · 自动生成");
+  return lines.join("\n");
+}
+
+// ─── 主入口 ──────────────────────────────────────────────────────────────────
+
+export async function run(input) {
+  try {
+    let params = {};
+    try { params = typeof input === "string" ? JSON.parse(input) : input || {}; } catch { params = {}; }
+
+    const projects = params.projects || [process.cwd()];
+    const channelId = params.channelId || DEFAULT_CHANNEL_ID;
+    const telegramChatId = params.telegramChatId;
+    const depth = params.depth || DEFAULT_DEPTH;
+    const dryRun = params.dryRun ?? false;
+    const date = todayString();
+    const projectResults = [];
+
+    for (const projectPath of projects) {
+      const projResult = { path: projectPath, actions: [], issues: [], prUrl: null, summary: null, skipReason: null, error: null };
+
+      try {
+        const scan = await scanProject(projectPath, depth);
+        const effectiveDryRun = dryRun || scan.hasUncommittedChanges;
+        if (scan.hasUncommittedChanges && !dryRun) {
+          projResult.skipReason = "工作区有未提交的更改，仅执行分析模式";
+        }
+
+        const analysis = await analyzeWithAI(scan, depth);
+        projResult.summary = analysis.summary || null;
+
+        if (analysis.skipReason && (!analysis.actions?.length) && (!analysis.issues?.length)) {
+          projResult.skipReason = analysis.skipReason;
+          projectResults.push(projResult);
+          continue;
+        }
+
+        const execResults = await executeActions(projectPath, analysis, effectiveDryRun);
+        projResult.actions = execResults.actions;
+        projResult.issues = execResults.issues;
+        projResult.prUrl = execResults.prUrl || null;
+      } catch (err) {
+        projResult.error = err.message;
+      }
+
+      projectResults.push(projResult);
+    }
+
+    const report = buildDiscordReport(date, projectResults, dryRun);
+    let discordMessageIds = [];
+    try { discordMessageIds = await sendToDiscord(channelId, report); }
+    catch (e) { discordMessageIds = [`error: ${e.message}`]; }
+
+    // Telegram 推送
+    let telegramMessageIds = [];
+    if (telegramChatId) {
+      try { telegramMessageIds = await sendToTelegram(telegramChatId, report); }
+      catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
+    }
+
+    return JSON.stringify({
+      ok: true, date, dryRun,
+      projects: projectResults.map((p) => ({
+        path: p.path, summary: p.summary, skipReason: p.skipReason,
+        actions: p.actions, issues: p.issues, prUrl: p.prUrl, error: p.error,
+      })),
+      discordMessageIds, telegramMessageIds,
+      message: dryRun
+        ? "主动型程序员分析报告（DRY RUN）已推送到 Discord"
+        : `主动型程序员报告已推送到 Discord 频道 ${channelId}`,
+    }, null, 2);
+  } catch (error) {
+    return JSON.stringify({ ok: false, error: error.message }, null, 2);
+  }
+}
+
+export default run;
