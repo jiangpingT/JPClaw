@@ -175,9 +175,21 @@ ${depthInstruction[depth] || depthInstruction.standard}
     contextParts.push(`## 文件: ${fileName}\n\`\`\`\n${content}\n\`\`\``);
   }
 
-  const maxTokens = depth === "deep" ? 8192 : depth === "quick" ? 2048 : 4096;
+  const maxTokens = depth === "quick" ? 2048 : 8192;
 
-  return callAnthropicJSON(systemPrompt, contextParts.join("\n\n"), { maxTokens });
+  try {
+    return await callAnthropicJSON(systemPrompt, contextParts.join("\n\n"), { maxTokens });
+  } catch (err) {
+    // JSON 解析失败（截断或格式错误）：尝试从错误消息中提取 summary，优雅降级
+    const raw = err.message || "";
+    const summaryMatch = raw.match(/"summary"\s*:\s*"([^"]+)"/);
+    return {
+      summary: summaryMatch ? summaryMatch[1] : "AI 分析返回格式异常，已跳过",
+      actions: [],
+      issues: [],
+      skipReason: "AI 返回 JSON 解析失败（可能被截断），本次跳过自动操作",
+    };
+  }
 }
 
 // ─── 执行行动 ────────────────────────────────────────────────────────────────
