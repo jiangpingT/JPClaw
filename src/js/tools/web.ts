@@ -4,16 +4,6 @@ import { recordMetric } from "../shared/metrics.js";
 import { safePromiseAll } from "../shared/async-utils.js";
 import { validateUrl } from "../shared/security-utils.js";
 
-type DuckResponse = {
-  AbstractText?: string;
-  AbstractURL?: string;
-  Heading?: string;
-  RelatedTopics?: Array<{
-    Text?: string;
-    FirstURL?: string;
-    Topics?: Array<{ Text?: string; FirstURL?: string }>;
-  }>;
-};
 
 type NewsItem = {
   title: string;
@@ -76,44 +66,54 @@ export async function searchWebWithOptions(
   return out;
 }
 
+async function scrapeAndExtract(url: string): Promise<string | null> {
+  try {
+    const jinaUrl = `https://r.jina.ai/${encodeURIComponent(url)}`;
+    const content = await runCurl(jinaUrl);
+    if (!content || !content.trim()) return null;
+    return content.slice(0, 3000);
+  } catch {
+    return null;
+  }
+}
+
 async function searchGeneral(query: string): Promise<string> {
   if (isNewsQuery(query)) {
     const news = await searchNewsWithSummary(query);
     if (news) return news;
   }
 
-  const candidates = buildGeneralCandidates(query);
-  const attempts: string[] = [];
+  // 1. Serper.dev（Google 质量，需 SERPER_API_KEY）
+  const serperResults = await searchSerper(query);
+  if (serperResults) {
+    const topUrl = serperResults[0]?.url;
+    const fullText = topUrl ? await scrapeAndExtract(topUrl) : null;
+    return formatSearchResults(query, serperResults, "Serper/Google", fullText);
+  }
+
+  // 2. DuckDuckGo HTML 真实搜索（无需 key）
+  const duckResults = await searchDuckHtml(query);
+  if (duckResults) {
+    const topUrl = duckResults[0]?.url;
+    const fullText = topUrl ? await scrapeAndExtract(topUrl) : null;
+    return formatSearchResults(query, duckResults, "DuckDuckGo", fullText);
+  }
+
+  // 3. 变换关键词重试
+  const candidates = buildGeneralCandidates(query).slice(1);
   for (const q of candidates) {
-    attempts.push(q);
-    const result = await searchDuck(q);
-    if (result) {
-      return formatStructuredResult({
-        title: `检索结果（关键词：${normalizeSearchPhrase(query)}）`,
-        overview: "已获取到公开信息并完成摘要整理。",
-        points: result
-          .split("\n")
-          .map((x) => x.trim())
-          .filter(Boolean)
-          .slice(0, 6),
-        confidence: "中"
-      });
+    const retryResults = await searchDuckHtml(q);
+    if (retryResults) {
+      const topUrl = retryResults[0]?.url;
+      const fullText = topUrl ? await scrapeAndExtract(topUrl) : null;
+      return formatSearchResults(query, retryResults, "DuckDuckGo", fullText);
     }
   }
 
-  // 给出更有用的建议
-  const suggestions = [
-    `已尝试关键词：${attempts.join(" | ")}`,
-    "💡 提示：当前使用DuckDuckGo API，对某些企业人物信息覆盖有限",
-    "建议：",
-    "1. 配置 BRAVE_SEARCH_API_KEY 环境变量获取更好的搜索结果",
-    "2. 或者告诉我具体要查的官网/公司网站，我可以直接抓取"
-  ];
-
   return formatStructuredResult({
     title: `检索结果（关键词：${normalizeSearchPhrase(query)}）`,
-    overview: "已执行多轮检索，但当前公开结果仍不够清晰。",
-    points: suggestions,
+    overview: "已尝试多个搜索引擎，暂未获得公开结果，请尝试换个关键词或提供具体网址。",
+    points: ["建议：提供具体的网站链接，我可以直接抓取内容"],
     confidence: "低"
   });
 }
@@ -134,7 +134,7 @@ async function searchNewsWithSummary(query: string): Promise<string | null> {
   const deduped = dedupeNews(merged).slice(0, 16);
   const ranked = rankNewsByTargets(deduped, targetPeople).slice(0, 8);
   if (ranked.length === 0) return null;
-  const overview = buildNewsOverview(ranked);
+  const overview = buildNewsOverview(ranked, targetPeople);
   const quality = scoreNewsQuality(ranked, targetPeople);
 
   const summary = [
@@ -193,40 +193,114 @@ function parseRssNews(xml: string, source: string): NewsItem[] {
   return output;
 }
 
-async function searchDuck(query: string): Promise<string | null> {
-  const url = new URL("https://api.duckduckgo.com/");
-  url.searchParams.set("q", query);
-  url.searchParams.set("format", "json");
-  url.searchParams.set("no_html", "1");
-  url.searchParams.set("skip_disambig", "1");
-
-  const raw = await runCurl(url.toString()).catch((error) => {
-    log("error", "web.search.curl_error", { error: String(error), query });
-    return "";
-  });
-  if (!raw.trim()) return null;
-  let data: DuckResponse;
+async function searchSerper(query: string): Promise<Array<{ title: string; url: string; snippet: string }> | null> {
+  const apiKey = String(process.env.SERPER_API_KEY || "").trim();
+  if (!apiKey) return null;
   try {
-    data = JSON.parse(raw) as DuckResponse;
+    const resp = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ q: query, num: 10, hl: "zh-cn", gl: "cn" })
+    });
+    if (!resp.ok) {
+      log("warn", "web.serper.error", { status: resp.status, query });
+      return null;
+    }
+    const data = await resp.json() as any;
+    const organic = Array.isArray(data?.organic) ? data.organic : [];
+    const results = organic
+      .slice(0, 8)
+      .map((item: any) => ({
+        title: String(item?.title || ""),
+        url: String(item?.link || ""),
+        snippet: String(item?.snippet || "")
+      }))
+      .filter((x: any) => x.title && x.url);
+    return results.length > 0 ? results : null;
   } catch (error) {
-    log("error", "web.search.parse_error", { error: String(error) });
+    log("warn", "web.serper.failed", { error: String(error), query });
     return null;
   }
-  const lines: string[] = [];
+}
 
-  if (data.Heading && data.AbstractText) {
-    lines.push(`${data.Heading}: ${data.AbstractText}`);
+async function searchDuckHtml(query: string): Promise<Array<{ title: string; url: string; snippet: string }> | null> {
+  const targetUrl = "https://html.duckduckgo.com/html/";
+  if (!validateUrl(targetUrl)) return null;
+
+  const proxyUrl = process.env.DISCORD_PROXY_URL || process.env.https_proxy || process.env.http_proxy;
+  const proxyArg = proxyUrl ? `-x ${shellEscape(proxyUrl)}` : "";
+  const formData = `q=${encodeURIComponent(query)}&kl=cn-zh`;
+
+  const cmd = [
+    "curl -sL",
+    proxyArg,
+    "--max-time 20 --retry 1",
+    "-X POST",
+    `'${targetUrl}'`,
+    `-H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'`,
+    `-H 'Content-Type: application/x-www-form-urlencoded'`,
+    `-H 'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8'`,
+    `--data ${shellEscape(formData)}`
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const html = await new Promise<string>((resolve) => {
+    exec(
+      cmd,
+      { timeout: 25000, maxBuffer: 2 * 1024 * 1024, shell: "/bin/zsh" },
+      (error, stdout) => {
+        if (error) {
+          log("warn", "web.duck_html.failed", { error: String(error), query });
+          resolve("");
+        } else {
+          resolve(stdout);
+        }
+      }
+    );
+  });
+
+  if (!html.trim()) return null;
+  return parseDuckHtml(html);
+}
+
+function parseDuckHtml(html: string): Array<{ title: string; url: string; snippet: string }> | null {
+  const results: Array<{ title: string; url: string; snippet: string }> = [];
+  // 按结果块分割
+  const blocks = html.split(/(?=<div[^>]+class="[^"]*result[^"]*web-result)/i);
+  for (const block of blocks) {
+    if (!block.includes("result__a")) continue;
+    const titleMatch = block.match(/<a[^>]+class="result__a"[^>]*>([\s\S]*?)<\/a>/i);
+    const title = titleMatch ? decodeXml(titleMatch[1]).replace(/<[^>]*>/g, "").trim() : "";
+    const urlMatch = block.match(/<span[^>]+class="result__url"[^>]*>([\s\S]*?)<\/span>/i);
+    const url = urlMatch ? decodeXml(urlMatch[1]).replace(/<[^>]*>/g, "").trim() : "";
+    const snippetMatch = block.match(/<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
+    const snippet = snippetMatch ? decodeXml(snippetMatch[1]).replace(/<[^>]*>/g, "").trim() : "";
+    if (title) results.push({ title, url, snippet });
+    if (results.length >= 8) break;
+  }
+  return results.length > 0 ? results : null;
+}
+
+function formatSearchResults(
+  query: string,
+  results: Array<{ title: string; url: string; snippet: string }>,
+  source: string,
+  fullText?: string | null
+): string {
+  const lines: string[] = ["[搜索上下文]"];
+  results.slice(0, 6).forEach((r, i) => {
+    lines.push(`${i + 1}. ${r.title}`);
+    if (r.snippet) lines.push(`   ${r.snippet}`);
+    if (r.url) lines.push(`   ${r.url}`);
+  });
+
+  if (fullText) {
+    lines.push("");
+    lines.push("[文章正文]");
+    lines.push(fullText);
   }
 
-  const related = flattenTopics(data.RelatedTopics || []).filter((x) => x.Text && x.FirstURL).slice(0, 5);
-  if (related.length > 0) {
-    lines.push("相关结果:");
-    for (const item of related) {
-      lines.push(`- ${item.Text}`);
-    }
-  }
-
-  if (lines.length === 0) return null;
   return lines.join("\n");
 }
 
@@ -483,19 +557,6 @@ function shellEscape(value: string): string {
   return `'${value.replace(/'/g, `'\"'\"'`)}'`;
 }
 
-function flattenTopics(
-  topics: Array<{ Text?: string; FirstURL?: string; Topics?: Array<{ Text?: string; FirstURL?: string }> }>
-): Array<{ Text?: string; FirstURL?: string }> {
-  const output: Array<{ Text?: string; FirstURL?: string }> = [];
-  for (const topic of topics) {
-    if (topic.Topics && topic.Topics.length > 0) {
-      output.push(...topic.Topics);
-      continue;
-    }
-    output.push(topic);
-  }
-  return output;
-}
 
 function extractTag(xmlChunk: string, tag: string): string | null {
   const match = xmlChunk.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i"));
@@ -524,7 +585,7 @@ function dedupeNews(items: NewsItem[]): NewsItem[] {
   return out;
 }
 
-function buildNewsOverview(items: NewsItem[]): string[] {
+function buildNewsOverview(items: NewsItem[], targetPeople: string[]): string[] {
   const top = items.slice(0, 5);
   const dates = top
     .map((x) => (x.pubDate ? Date.parse(x.pubDate) : NaN))
@@ -533,18 +594,22 @@ function buildNewsOverview(items: NewsItem[]): string[] {
 
   const ipoCount = top.filter((x) => /ipo|上市|港交所|备案|估值/i.test(x.title)).length;
   const interviewCount = top.filter((x) => /专访|访谈|对话|演讲/i.test(x.title)).length;
-  const personHit = top.filter((x) => /姜平/i.test(`${x.title}\n${x.description || ""}`)).length;
 
   const lines: string[] = [];
   lines.push(`最近可见时间点：${latest}。`);
-  lines.push(
-    `主题分布：资本市场动态 ${ipoCount} 条，人物观点/访谈 ${interviewCount} 条。`
-  );
-  lines.push(
-    personHit > 0
-      ? `人物相关性：已命中 ${personHit} 条含“姜平”直接提及的内容。`
-      : "人物相关性：直接提及“姜平”的内容较少，部分结果仍为公司层面新闻。"
-  );
+  lines.push(`主题分布：资本市场动态 ${ipoCount} 条，人物观点/访谈 ${interviewCount} 条。`);
+
+  if (targetPeople.length > 0) {
+    const personHit = top.filter((x) =>
+      targetPeople.some((p) => `${x.title}\n${x.description || ""}`.includes(p))
+    ).length;
+    lines.push(
+      personHit > 0
+        ? `人物相关性：已命中 ${personHit} 条含"${targetPeople.join("、")}"直接提及的内容。`
+        : `人物相关性：直接提及"${targetPeople.join("、")}"的内容较少，部分结果仍为公司层面新闻。`
+    );
+  }
+
   return lines;
 }
 
@@ -568,10 +633,22 @@ function rankNewsByTargets(items: NewsItem[], targetPeople: string[]): NewsItem[
 }
 
 function extractPersonTargets(query: string): string[] {
-  const targets: string[] = [];
-  if (query.includes("姜平")) targets.push("姜平");
-  if (query.includes("吴明辉")) targets.push("吴明辉");
-  return targets;
+  // AI 驱动：通过规则识别中文人名，不硬编码特定人物
+  const stopWords = new Set([
+    "中国", "北京", "上海", "广州", "深圳", "美国", "今天", "今日", "明天",
+    "公司", "技术", "人工", "智能", "创业", "融资", "新闻", "赛道", "独角兽",
+    "最新", "近况", "公开", "信息", "最近", "联网", "查询", "搜索"
+  ]);
+  const cleaned = query
+    .replace(/公司|科技|集团|企业|创始人|CEO|总裁|董事|合伙人|新闻|简历|人物|高管|履历|查询|搜索|最新|近况|公开|信息/g, " ")
+    .replace(/[^\u4e00-\u9fff\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // 中文人名通常是 2-4 个连续汉字
+  const candidates = (cleaned.match(/[\u4e00-\u9fff]{2,4}/g) || []).filter(
+    (w) => !stopWords.has(w)
+  );
+  return [...new Set(candidates)].slice(0, 3);
 }
 
 function toShortDate(input: string): string {

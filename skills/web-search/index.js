@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { searchWebWithOptions } from "../../dist/tools/web.js";
+import { callAnthropic } from "../_shared/proactive-utils.js";
 
 function parseInput(raw) {
   const text = String(raw ?? "").trim();
@@ -38,54 +39,38 @@ async function searchBrave(query, count) {
   }));
 }
 
+const SYNTHESIS_SYSTEM_PROMPT = `你是信息助手。根据搜索内容直接回答用户问题。
+规则：
+- 直接给出答案，不说"根据搜索结果"等
+- 不提 Serper、Google、DuckDuckGo 等搜索引擎名
+- 用户若问具体信息（如"哪10个赛道"）→ 直接列要点，无需附链接
+- 用户若要文章列表 → 提供标题+链接
+- 用中文回答，格式清晰`;
+
 export async function run(input) {
   const payload = parseInput(input);
   const query = String(payload.query || "").trim();
   if (!query) {
-    return JSON.stringify({ ok: false, error: "missing_query" }, null, 2);
+    return "缺少查询关键词，请提供要搜索的内容。";
   }
   const traceId = String(payload.traceId || crypto.randomUUID().slice(0, 8));
-  const provider = String(payload.provider || "auto").toLowerCase();
   try {
-    if (provider === "brave" || provider === "auto") {
-      const braveRows = await searchBrave(query, payload.count);
-      if (Array.isArray(braveRows) && braveRows.length) {
-        return JSON.stringify(
-          {
-            ok: true,
-            traceId,
-            query,
-            provider: "brave",
-            count: braveRows.length,
-            rows: braveRows
-          },
-          null,
-          2
-        );
-      }
+    // Step 1: 获取搜索上下文（含 Jina 正文）
+    const context = await searchWebWithOptions(query, { traceId });
+
+    // Step 2: LLM 合成答案
+    try {
+      const answer = await callAnthropic(
+        SYNTHESIS_SYSTEM_PROMPT,
+        `${query}\n\n${context}`,
+        { model: "claude-3-5-haiku-20241022", maxTokens: 1000 }
+      );
+      return answer;
+    } catch {
+      // Fallback：LLM 合成失败，返回原始上下文
+      return context;
     }
-    const result = await searchWebWithOptions(query, { traceId });
-    return JSON.stringify(
-      {
-        ok: true,
-        traceId,
-        query,
-        provider: "builtin",
-        result: String(result || "").trim()
-      },
-      null,
-      2
-    );
   } catch (error) {
-    return JSON.stringify(
-      {
-        ok: false,
-        traceId,
-        query,
-        error: String(error?.message || error)
-      },
-      null,
-      2
-    );
+    return `搜索失败：${String(error?.message || error)}`;
   }
 }
