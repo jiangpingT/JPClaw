@@ -179,7 +179,9 @@ export async function callAnthropic(systemPrompt, userMessage, opts = {}) {
     throw new Error(`Anthropic API error: ${response.status} ${errText}`);
   }
 
-  const result = await response.json();
+  const result = await response.json().catch((e) => {
+    throw new Error(`Anthropic API 响应解析失败: ${e.message}`);
+  });
   return result?.content?.[0]?.text || result?.completion || "";
 }
 
