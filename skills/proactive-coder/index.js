@@ -321,7 +321,7 @@ function buildPRDescription(analysis, results) {
   return lines.join("\n");
 }
 
-function buildDiscordReport(date, projectResults, dryRun) {
+function buildDiscordReport(date, projectResults, dryRun, benchmark = null) {
   const lines = [];
   lines.push(`🤖 **主动型程序员报告${dryRun ? " [DRY RUN]" : ""}** | ${date}`);
   lines.push("");
@@ -350,7 +350,116 @@ function buildDiscordReport(date, projectResults, dryRun) {
     lines.push("");
   }
 
+  if (benchmark) lines.push(buildBenchmarkSection(benchmark));
   lines.push("---", "JPClaw 主动型程序员 · 自动生成");
+  return lines.join("\n");
+}
+
+// ─── 基准对比 ────────────────────────────────────────────────────────────────
+
+const OPENCLAW_PATH = process.env.BENCHMARK_OPENCLAW_PATH || "/Users/mlamp/Workspace/OpenClaw";
+const OPENCLAW_FILES = ["README.md", "ARCHITECTURE.md", "VISION.md", "AGENTS.md", "package.json"];
+
+async function gatherOpenClawContext() {
+  const parts = [];
+  for (const file of OPENCLAW_FILES) {
+    const filePath = path.join(OPENCLAW_PATH, file);
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, "utf-8").slice(0, 2000);
+        parts.push(`### ${file}\n${content}`);
+      }
+    } catch {}
+  }
+  // 技能列表
+  try {
+    const skillsDir = path.join(OPENCLAW_PATH, "skills");
+    if (fs.existsSync(skillsDir)) {
+      const skills = fs.readdirSync(skillsDir).filter((f) => !f.startsWith("."));
+      parts.push(`### 技能列表（${skills.length} 个）\n${skills.join(", ")}`);
+    }
+  } catch {}
+  return parts.length > 0 ? parts.join("\n\n") : "OpenClaw 目录不可访问";
+}
+
+async function gatherMarketContext() {
+  try {
+    const { searchWebWithOptions } = await import("../../dist/tools/web.js");
+    const queries = [
+      "top AI agent frameworks 2026 LangChain AutoGen CrewAI comparison features",
+      "best open source personal AI assistant platforms 2026",
+    ];
+    const results = [];
+    for (const query of queries) {
+      try {
+        const result = await searchWebWithOptions(query);
+        results.push(result.slice(0, 2000));
+      } catch {}
+    }
+    return results.join("\n\n---\n\n") || "市场信息获取失败";
+  } catch {
+    return "市场信息获取失败";
+  }
+}
+
+async function analyzeBenchmark(jpcławContext, openClawContext, marketContext) {
+  const { callAnthropicJSON } = await import("../_shared/proactive-utils.js");
+
+  const systemPrompt = `你是技术架构分析师。对比 JPClaw 与同类产品，给出具体可行的升级建议。
+
+输出严格 JSON（不含 markdown 标记）：
+{
+  "vsOpenClaw": [
+    { "dimension": "对比维度", "jpclaw": "JPClaw现状", "openclaw": "OpenClaw现状", "gap": "差距描述", "suggestion": "具体建议" }
+  ],
+  "vsMarket": [
+    { "feature": "特性名", "marketBest": "市场标杆做法", "jpclaw": "JPClaw现状", "priority": "P0|P1|P2", "suggestion": "具体建议" }
+  ],
+  "topSuggestions": ["最重要的3-5条升级建议（具体可执行，非泛泛而谈）"],
+  "strengths": ["JPClaw 的独特优势（不要客套，要真实）"]
+}`;
+
+  const userMessage = [
+    `## JPClaw 现状\n${jpcławContext}`,
+    `## OpenClaw 对比资料\n${openClawContext}`,
+    `## 市场主流框架资料\n${marketContext}`,
+  ].join("\n\n");
+
+  return callAnthropicJSON(systemPrompt, userMessage, { maxTokens: 4096 });
+}
+
+function buildBenchmarkSection(benchmark) {
+  if (!benchmark) return "";
+  const lines = ["", "---", "📊 **基准对比分析**", ""];
+
+  if (benchmark.strengths?.length) {
+    lines.push("**JPClaw 优势：**");
+    for (const s of benchmark.strengths) lines.push(`✅ ${s}`);
+    lines.push("");
+  }
+
+  if (benchmark.topSuggestions?.length) {
+    lines.push("**TOP 升级建议：**");
+    for (const s of benchmark.topSuggestions) lines.push(`🎯 ${s}`);
+    lines.push("");
+  }
+
+  if (benchmark.vsOpenClaw?.length) {
+    lines.push("**vs OpenClaw：**");
+    for (const item of benchmark.vsOpenClaw) {
+      lines.push(`• **${item.dimension}**：${item.gap} → ${item.suggestion}`);
+    }
+    lines.push("");
+  }
+
+  if (benchmark.vsMarket?.length) {
+    lines.push("**vs 市场框架：**");
+    for (const item of benchmark.vsMarket) {
+      const badge = item.priority === "P0" ? "🔴" : item.priority === "P1" ? "🟡" : "🟢";
+      lines.push(`${badge} [${item.priority}] **${item.feature}**：${item.suggestion}`);
+    }
+  }
+
   return lines.join("\n");
 }
 
@@ -366,6 +475,7 @@ export async function run(input) {
     const telegramChatId = params.telegramChatId;
     const depth = params.depth || DEFAULT_DEPTH;
     const dryRun = params.dryRun ?? false;
+    const includeBenchmark = params.includeBenchmark ?? false;
     const date = todayString();
     const projectResults = [];
 
@@ -374,6 +484,7 @@ export async function run(input) {
 
       try {
         const scan = await scanProject(projectPath, depth);
+        projResult.scan = scan;
         const effectiveDryRun = dryRun || scan.hasUncommittedChanges;
         if (scan.hasUncommittedChanges && !dryRun) {
           projResult.skipReason = "工作区有未提交的更改，仅执行分析模式";
@@ -399,7 +510,24 @@ export async function run(input) {
       projectResults.push(projResult);
     }
 
-    const report = buildDiscordReport(date, projectResults, dryRun);
+    // 基准对比（可选，耗时较长）
+    let benchmark = null;
+    if (includeBenchmark) {
+      try {
+        const jpcławContext = Object.entries(projectResults[0]?.scan?.contextFiles || {})
+          .map(([k, v]) => `### ${k}\n${v}`)
+          .join("\n\n") || "JPClaw 上下文不可用";
+        const [openClawContext, marketContext] = await Promise.all([
+          gatherOpenClawContext(),
+          gatherMarketContext(),
+        ]);
+        benchmark = await analyzeBenchmark(jpcławContext, openClawContext, marketContext);
+      } catch (e) {
+        benchmark = { error: e.message };
+      }
+    }
+
+    const report = buildDiscordReport(date, projectResults, dryRun, benchmark);
     let discordMessageIds = [];
     try { discordMessageIds = await sendToDiscord(channelId, report); }
     catch (e) { discordMessageIds = [`error: ${e.message}`]; }
