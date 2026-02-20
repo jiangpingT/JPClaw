@@ -126,7 +126,7 @@ ${depthInstruction[depth] || depthInstruction.standard}
 
 ## 输出格式
 
-请严格返回 JSON（不要包含 markdown 代码块标记）：
+【重要】只输出纯 JSON，第一个字符必须是 {，最后一个字符必须是 }，不要任何前缀文字、解释或 markdown 标记：
 
 {
   "summary": "一句话总结项目当前状态",
@@ -402,9 +402,7 @@ async function gatherMarketContext() {
   }
 }
 
-async function analyzeBenchmark(jpcławContext, openClawContext, marketContext) {
-  const { callAnthropicJSON } = await import("../_shared/proactive-utils.js");
-
+async function analyzeBenchmark(jpcClawContext, openClawContext, marketContext) {
   const systemPrompt = `你是技术架构分析师。对比 JPClaw 与同类产品，给出具体可行的升级建议。
 
 输出严格 JSON（不含 markdown 标记）：
@@ -420,7 +418,7 @@ async function analyzeBenchmark(jpcławContext, openClawContext, marketContext) 
 }`;
 
   const userMessage = [
-    `## JPClaw 现状\n${jpcławContext}`,
+    `## JPClaw 现状\n${jpcClawContext}`,
     `## OpenClaw 对比资料\n${openClawContext}`,
     `## 市场主流框架资料\n${marketContext}`,
   ].join("\n\n");
@@ -514,14 +512,14 @@ export async function run(input) {
     let benchmark = null;
     if (includeBenchmark) {
       try {
-        const jpcławContext = Object.entries(projectResults[0]?.scan?.contextFiles || {})
+        const jpcClawContext = Object.entries(projectResults[0]?.scan?.contextFiles || {})
           .map(([k, v]) => `### ${k}\n${v}`)
           .join("\n\n") || "JPClaw 上下文不可用";
         const [openClawContext, marketContext] = await Promise.all([
           gatherOpenClawContext(),
           gatherMarketContext(),
         ]);
-        benchmark = await analyzeBenchmark(jpcławContext, openClawContext, marketContext);
+        benchmark = await analyzeBenchmark(jpcClawContext, openClawContext, marketContext);
       } catch (e) {
         benchmark = { error: e.message };
       }
@@ -545,6 +543,7 @@ export async function run(input) {
         path: p.path, summary: p.summary, skipReason: p.skipReason,
         actions: p.actions, issues: p.issues, prUrl: p.prUrl, error: p.error,
       })),
+      benchmark: benchmark || undefined,
       discordMessageIds, telegramMessageIds,
       message: dryRun
         ? "主动型程序员分析报告（DRY RUN）已推送到 Discord"
