@@ -356,7 +356,7 @@ class HealthMonitor {
         if (process.platform === "darwin") {
           try {
             const pressure = await new Promise<number>((resolve, reject) => {
-              exec("sysctl -n vm.memory_pressure", { timeout: 2000 }, (err, stdout) => {
+              exec("/usr/sbin/sysctl -n vm.memory_pressure", { timeout: 2000 }, (err, stdout) => {
                 if (err) reject(err);
                 else resolve(Number(stdout.trim()));
               });
