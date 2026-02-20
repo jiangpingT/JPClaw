@@ -551,6 +551,31 @@ export async function startGateway(): Promise<ShutdownFunction> {
       return;
     }
 
+    if (req.method === "GET" && req.url === "/api/status") {
+      try {
+        const health = await healthMonitor.runAllChecks();
+        const snap = metrics.generateSnapshot();
+        const tasksPath = path.join(process.cwd(), "sessions", "schedules", "tasks.json");
+        let tasks: unknown[] = [];
+        try { tasks = JSON.parse(await fs.promises.readFile(tasksPath, "utf-8")); } catch {}
+
+        safeResponse(200, {
+          timestamp: Date.now(),
+          health: {
+            overall: health.overall,
+            uptime: health.uptime,
+            uptimeFormatted: formatUptime(health.uptime),
+            checks: health.checks,
+          },
+          metrics: snap.summary,
+          tasks,
+        });
+      } catch (err) {
+        safeResponse(500, { error: "Status collection failed" });
+      }
+      return;
+    }
+
     // 阶段4：Benchmark 端点
     if (req.method === "POST" && req.url === "/benchmark") {
       try {
@@ -585,7 +610,7 @@ export async function startGateway(): Promise<ShutdownFunction> {
 
     if (req.method === "GET" && req.url === "/dashboard") {
       try {
-        const dashboardPath = path.join(process.cwd(), "src", "js", "gateway", "dashboard.html");
+        const dashboardPath = path.join(process.cwd(), "src", "js", "gateway", "dashboard-main.html");
         const dashboardContent = await fs.promises.readFile(dashboardPath, "utf-8");
 
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -593,6 +618,20 @@ export async function startGateway(): Promise<ShutdownFunction> {
       } catch (error) {
         res.writeHead(404, { "content-type": "text/plain" });
         res.end("Dashboard not found");
+      }
+      return;
+    }
+
+    if (req.method === "GET" && req.url === "/dashboard/benchmark") {
+      try {
+        const dashboardPath = path.join(process.cwd(), "src", "js", "gateway", "dashboard.html");
+        const dashboardContent = await fs.promises.readFile(dashboardPath, "utf-8");
+
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(dashboardContent);
+      } catch (error) {
+        res.writeHead(404, { "content-type": "text/plain" });
+        res.end("Benchmark dashboard not found");
       }
       return;
     }

@@ -292,35 +292,47 @@ class HealthMonitor {
 
   private registerDefaultChecks(): void {
     // 内存健康检查
+    // 用 heapUsed 对比可配置上限（默认 512 MB），避免 heapUsed/heapTotal 产生假告警
+    // heapTotal 是 Node.js 当前动态分配的堆大小，不是上限，用它做比值无实际意义
     this.register({
       name: "memory",
       description: "Check memory usage",
       check: async () => {
         const memUsage = process.memoryUsage();
-        const heapUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
-        
-        if (heapUsagePercent > 90) {
+        const heapMaxMB = Number(process.env.JPCLAW_HEAP_MAX_MB || 512);
+        const heapUsedMB = memUsage.heapUsed / 1024 / 1024;
+        const heapUsedPct = (heapUsedMB / heapMaxMB) * 100;
+
+        const details = {
+          heapUsedMB: Math.round(heapUsedMB),
+          heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),
+          rssMB: Math.round(memUsage.rss / 1024 / 1024),
+          heapMaxMB,
+          heapUsedPct: Math.round(heapUsedPct),
+        };
+
+        if (heapUsedPct > 90) {
           return {
             status: "unhealthy",
-            message: `High memory usage: ${heapUsagePercent.toFixed(1)}%`,
-            details: { memUsage, heapUsagePercent },
+            message: `堆内存严重不足：${Math.round(heapUsedMB)} MB / ${heapMaxMB} MB (${Math.round(heapUsedPct)}%)`,
+            details,
             timestamp: Date.now(),
             duration: 0
           };
-        } else if (heapUsagePercent > 80) {
+        } else if (heapUsedPct > 75) {
           return {
             status: "degraded",
-            message: `Elevated memory usage: ${heapUsagePercent.toFixed(1)}%`,
-            details: { memUsage, heapUsagePercent },
+            message: `堆内存偏高：${Math.round(heapUsedMB)} MB / ${heapMaxMB} MB (${Math.round(heapUsedPct)}%)`,
+            details,
             timestamp: Date.now(),
             duration: 0
           };
         }
-        
+
         return {
           status: "healthy",
-          message: `Memory usage normal: ${heapUsagePercent.toFixed(1)}%`,
-          details: { memUsage, heapUsagePercent },
+          message: `堆内存正常：${Math.round(heapUsedMB)} MB / ${heapMaxMB} MB (${Math.round(heapUsedPct)}%)`,
+          details,
           timestamp: Date.now(),
           duration: 0
         };

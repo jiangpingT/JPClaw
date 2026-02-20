@@ -499,7 +499,8 @@ export class SecurityManager {
       '/webhook/wecom',
       '/chat', // 允许CLI测试访问
       '/dashboard', // 本地运维面板（网关仅监听 localhost）
-      '/benchmark' // Dashboard 需要读取 benchmark 报告
+      '/benchmark', // Dashboard 需要读取 benchmark 报告
+      '/api/status' // 运营 Dashboard 状态接口
     ];
 
     return publicRoutes.some(route => url?.startsWith(route));
