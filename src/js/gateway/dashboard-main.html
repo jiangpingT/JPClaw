@@ -363,9 +363,13 @@
       </div>
       <div class="metric-card">
         <div class="metric-icon">💾</div>
-        <div class="metric-label">内存使用</div>
+        <div class="metric-label">堆内存</div>
         <div class="metric-value" id="memoryUsage">–</div>
-        <div class="metric-hint">Node.js 堆内存占用量，超过 500 MB 需关注</div>
+        <!-- heapTotal 压力条：heapUsed/heapTotal，接近 100% 说明 V8 正在扩堆 -->
+        <div class="mini-bar" style="margin-top:8px">
+          <div class="mini-bar-fill" id="heapPressureBar" style="width:0%"></div>
+        </div>
+        <div id="memoryDetail" class="metric-hint" style="margin-top:5px">–</div>
       </div>
     </div>
 
@@ -524,8 +528,33 @@
         m.errorRate != null ? m.errorRate.toFixed(2) + '%' : '–';
       document.getElementById('avgResponseTime').textContent =
         m.avgResponseTime != null ? Math.round(m.avgResponseTime) + ' ms' : '–';
-      const heapUsed = m.memoryUsage && m.memoryUsage.heapUsed;
-      document.getElementById('memoryUsage').textContent = fmtMB(heapUsed);
+      // 内存卡由 renderMemoryCard() 负责，数据来自 health check details
+    }
+
+    // 内存卡单独渲染，使用 health.checks.memory.details（含 heapMaxMB 真实上限）
+    function renderMemoryCard(checks) {
+      const mc = checks && checks.memory;
+      const d  = mc && mc.details;
+      if (!d) {
+        document.getElementById('memoryUsage').textContent = '–';
+        return;
+      }
+      const { heapUsedMB, heapTotalMB, rssMB, heapMaxMB, heapUsedPct } = d;
+
+      document.getElementById('memoryUsage').textContent = heapUsedMB + ' MB';
+
+      // 压力条：heapUsed / heapMax（512MB），这才是真实上限
+      const bar = document.getElementById('heapPressureBar');
+      bar.style.width = heapUsedPct + '%';
+      bar.style.background =
+        heapUsedPct > 85 ? '#ef4444'
+        : heapUsedPct > 70 ? '#f59e0b'
+        : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)';
+
+      // 明细：heapUsed/heapMax（真实压力）+ V8当前分配（heapTotal，看扩堆状态）+ 进程总内存(rss)
+      document.getElementById('memoryDetail').textContent =
+        '上限压力 ' + heapUsedMB + '/' + heapMaxMB + ' MB (' + heapUsedPct + '%)' +
+        ' · V8分配 ' + heapTotalMB + ' MB · 进程 ' + rssMB + ' MB';
     }
 
     function renderTasks(tasks) {
@@ -662,6 +691,7 @@
         document.getElementById('errorBar').style.display = 'none';
         renderHeader(data.health);
         renderMetrics(data.metrics);
+        renderMemoryCard(data.health.checks);
         renderTasks(data.tasks);
         renderChecks(data.health.checks);
       } catch (err) {

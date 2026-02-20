@@ -10,4 +10,6 @@ cd /Users/mlamp/Workspace/JPClaw
 # Keep tsx in one-shot mode so it works reliably under launchd.
 export TSX_DISABLE_CACHE=1
 
-exec /opt/homebrew/bin/node --import tsx src/js/cli/index.ts gateway
+# 明确给 V8 512MB 堆上限，避免动态堆碰天花板时 OOM 崩溃
+# proactive-coder 等高负载任务会产生大量临时对象，需要足够的 GC 缓冲空间
+exec /opt/homebrew/bin/node --max-old-space-size=512 --import tsx src/js/cli/index.ts gateway
