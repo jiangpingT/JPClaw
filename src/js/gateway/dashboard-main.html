@@ -613,9 +613,13 @@
       if (name === 'memory' && result.details.heapUsedMB != null) {
         return result.details.heapUsedMB + ' MB / ' + result.details.heapMaxMB + ' MB';
       }
-      // 系统 RAM：显示已用 / 总量 · 剩余%
+      // 系统 RAM：macOS 用 pressure 级别，其他 OS 用 freemem 比例
       if (name === 'system_memory' && result.details.totalMB != null) {
-        const { usedMB, totalMB, freePct } = result.details;
+        const { pressure, totalMB, freeMB, usedMB, freePct } = result.details;
+        if (pressure != null) {
+          const label = pressure === 0 ? '正常' : pressure === 1 ? '偏高' : '严重';
+          return '内存压力 ' + label + '（' + pressure + '）· 总量 ' + totalMB + ' MB';
+        }
         return '已用 ' + usedMB + ' MB / ' + totalMB + ' MB · 剩余 ' + freePct + '%';
       }
       // 向量记忆：显示条数

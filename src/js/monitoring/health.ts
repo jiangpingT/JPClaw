@@ -3,6 +3,7 @@
  * 提供组件健康状态监控和诊断
  */
 
+import { exec } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -343,38 +344,80 @@ class HealthMonitor {
     });
 
     // 系统 RAM 健康检查
-    // 关注点：macOS 可用内存（free）是否不足，与 V8 堆无关
+    // macOS：使用 sysctl vm.memory_pressure（OS 级真实压力，含可回收 inactive 页）
+    // os.freemem() 在 macOS 上接近 0 是正常现象（cache 占满），不能直接用作告警依据
     this.register({
       name: "system_memory",
-      description: "Check system RAM availability",
+      description: "Check system RAM pressure",
       check: async () => {
         const totalMB = Math.round(os.totalmem() / 1024 / 1024);
         const freeMB  = Math.round(os.freemem()  / 1024 / 1024);
-        const usedMB  = totalMB - freeMB;
-        const freePct = Math.round((freeMB / totalMB) * 100);
 
-        const details = { totalMB, freeMB, usedMB, freePct };
+        if (process.platform === "darwin") {
+          try {
+            const pressure = await new Promise<number>((resolve, reject) => {
+              exec("sysctl -n vm.memory_pressure", { timeout: 2000 }, (err, stdout) => {
+                if (err) reject(err);
+                else resolve(Number(stdout.trim()));
+              });
+            });
+
+            const details = { totalMB, freeMB, pressure };
+
+            if (pressure >= 2) {
+              return {
+                status: "unhealthy" as const,
+                message: `系统内存压力严重（pressure=${pressure}），OS 正在强制回收内存`,
+                details,
+                timestamp: Date.now(),
+                duration: 0
+              };
+            }
+            if (pressure === 1) {
+              return {
+                status: "degraded" as const,
+                message: `系统内存压力偏高（pressure=${pressure}），OS 已开始主动回收`,
+                details,
+                timestamp: Date.now(),
+                duration: 0
+              };
+            }
+            return {
+              status: "healthy" as const,
+              message: `系统内存正常（pressure=0）`,
+              details,
+              timestamp: Date.now(),
+              duration: 0
+            };
+          } catch {
+            // sysctl 失败，降级用 freemem 比例
+          }
+        }
+
+        // 非 macOS 或 sysctl 失败：用 freemem 比例（Linux 上有效）
+        const freePct = Math.round((freeMB / totalMB) * 100);
+        const details = { totalMB, freeMB, usedMB: totalMB - freeMB, freePct };
 
         if (freePct < 10) {
           return {
-            status: "unhealthy",
+            status: "unhealthy" as const,
             message: `系统内存严重不足：剩余 ${freeMB} MB / ${totalMB} MB（${freePct}% 空闲）`,
             details,
             timestamp: Date.now(),
             duration: 0
           };
-        } else if (freePct < 15) {
+        }
+        if (freePct < 15) {
           return {
-            status: "degraded",
+            status: "degraded" as const,
             message: `系统内存偏低：剩余 ${freeMB} MB / ${totalMB} MB（${freePct}% 空闲）`,
             details,
             timestamp: Date.now(),
             duration: 0
           };
         }
-
         return {
-          status: "healthy",
+          status: "healthy" as const,
           message: `系统内存正常：剩余 ${freeMB} MB / ${totalMB} MB（${freePct}% 空闲）`,
           details,
           timestamp: Date.now(),
