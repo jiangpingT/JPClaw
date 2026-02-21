@@ -1,0 +1,20 @@
+repos:
+  # 第一层：TruffleHog — 验证真实可用的密钥（低误报）
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.93.4
+    hooks:
+      - id: trufflehog
+        name: 检查硬编码密钥（TruffleHog）
+        entry: trufflehog git file://. --since-commit HEAD --only-verified --fail
+        language: system
+        pass_filenames: false
+        stages: [pre-commit, pre-push]
+
+  # 第二层：detect-secrets — 广谱扫描（高熵字符串、关键词模式等）
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: 检查硬编码密钥（detect-secrets）
+        args: [--baseline, .secrets.baseline]
+        exclude: \.secrets\.baseline$
