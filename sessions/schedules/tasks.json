@@ -1,0 +1,163 @@
+[
+  {
+    "id": "moltbook_post_45m",
+    "name": "Moltbook Auto Post (45m)",
+    "schedule": "every 45 minutes",
+    "action": "skill:moltbook",
+    "payload": {
+      "action": "post",
+      "title": "JPClaw 自动更新 {{time}}",
+      "seed": "JPClaw: 代理工具链/记忆系统/自动化调度 的灵感与创新点"
+    },
+    "createdAt": "2026-02-09T00:00:00.000Z",
+    "nextRunAt": "2026-02-16T14:23:17.413Z",
+    "lastRunAt": "2026-02-16T13:38:17.413Z",
+    "status": "paused"
+  },
+  {
+    "id": "moltbook_comment_self_60m",
+    "name": "Moltbook Comment Latest Self (60m)",
+    "schedule": "every 60 minutes",
+    "action": "skill:moltbook",
+    "payload": {
+      "action": "comment_latest_self",
+      "content": ""
+    },
+    "createdAt": "2026-02-09T00:00:00.000Z",
+    "nextRunAt": "2026-02-12T17:22:12.115Z",
+    "lastRunAt": "2026-02-12T16:22:12.115Z",
+    "status": "paused"
+  },
+  {
+    "id": "moltbook_comment_other_35m",
+    "name": "Moltbook Comment Latest Other (35m)",
+    "schedule": "every 35 minutes",
+    "action": "skill:moltbook",
+    "payload": {
+      "action": "comment_latest_other",
+      "content": ""
+    },
+    "createdAt": "2026-02-09T00:00:00.000Z",
+    "nextRunAt": "2026-02-13T02:50:36.551Z",
+    "lastRunAt": "2026-02-13T02:15:36.551Z",
+    "status": "paused"
+  },
+  {
+    "id": "morning_brief_daily",
+    "name": "每日晨间简报",
+    "schedule": "FREQ=DAILY;BYHOUR=8;BYMINUTE=0",
+    "action": "skill:morning-brief",
+    "payload": {
+      "city": "北京",
+      "channelId": "1469204772379693222",
+      "newsTopics": [
+        "AI",
+        "科技",
+        "创业"
+      ],
+      "telegramChatId": "-1003855994917"
+    },
+    "createdAt": "2026-02-19T00:00:00.000Z",
+    "nextRunAt": "2026-02-22T00:00:00.000Z",
+    "lastRunAt": "2026-02-21T00:00:58.081Z",
+    "status": "active"
+  },
+  {
+    "id": "proactive_coder_daily",
+    "name": "主动型程序员 (每日 21:00)",
+    "schedule": "FREQ=DAILY;BYHOUR=21;BYMINUTE=0",
+    "action": "skill:proactive-coder",
+    "payload": {
+      "projects": [
+        "/Users/mlamp/Workspace/JPClaw"
+      ],
+      "channelId": "1469204772379693222",
+      "depth": "standard",
+      "telegramChatId": "-1003855994917"
+    },
+    "createdAt": "2026-02-19T00:00:00.000Z",
+    "nextRunAt": "2026-02-21T13:00:00.000Z",
+    "lastRunAt": "2026-02-20T18:54:34.685Z",
+    "status": "active"
+  },
+  {
+    "id": "afternoon_report_daily",
+    "name": "下午研究报告 (每日 14:00)",
+    "schedule": "FREQ=DAILY;BYHOUR=14;BYMINUTE=0",
+    "action": "skill:afternoon-report",
+    "payload": {
+      "topics": [
+        "AI",
+        "LLM",
+        "TypeScript",
+        "创业"
+      ],
+      "depth": "standard",
+      "channelId": "1469204772379693222",
+      "telegramChatId": "-1003855994917"
+    },
+    "createdAt": "2026-02-19T00:00:00.000Z",
+    "nextRunAt": "2026-02-22T06:00:00.000Z",
+    "lastRunAt": "2026-02-21T06:00:43.151Z",
+    "status": "active"
+  },
+  {
+    "id": "community_radar_daily",
+    "name": "社区雷达 (每日 16:00)",
+    "schedule": "FREQ=DAILY;BYHOUR=16;BYMINUTE=0",
+    "action": "skill:community-radar",
+    "payload": {
+      "keywords": [
+        "LLM",
+        "Claude",
+        "AI",
+        "TypeScript"
+      ],
+      "sources": [
+        "reddit",
+        "hackernews"
+      ],
+      "lookbackDays": 30,
+      "minEngagement": 10,
+      "channelId": "1469204772379693222",
+      "telegramChatId": "-1003855994917"
+    },
+    "createdAt": "2026-02-19T00:00:00.000Z",
+    "nextRunAt": "2026-02-21T08:00:00.000Z",
+    "lastRunAt": "2026-02-20T08:00:53.970Z",
+    "status": "active"
+  },
+  {
+    "id": "proactive_coder_benchmark_weekly",
+    "name": "主动程序员·周度基准对比 (每周一 10:00)",
+    "schedule": "FREQ=WEEKLY;BYDAY=MO;BYHOUR=10;BYMINUTE=0",
+    "action": "skill:proactive-coder",
+    "payload": {
+      "projects": [
+        "/Users/mlamp/Workspace/JPClaw"
+      ],
+      "channelId": "1469204772379693222",
+      "telegramChatId": "-1003855994917",
+      "depth": "deep",
+      "includeBenchmark": true
+    },
+    "createdAt": "2026-02-20T00:00:00.000Z",
+    "nextRunAt": "2026-02-23T02:00:00.000Z",
+    "lastRunAt": null,
+    "status": "active"
+  },
+  {
+    "id": "stock_watch_daily",
+    "name": "收盘行情播报 (每日 17:00)",
+    "schedule": "FREQ=DAILY;BYHOUR=17;BYMINUTE=0",
+    "action": "skill:stock-watch",
+    "payload": {
+      "channelId": "1469204772379693222",
+      "telegramChatId": "-1003855994917"
+    },
+    "createdAt": "2026-02-21T00:00:00.000Z",
+    "nextRunAt": "2026-02-21T09:00:00.000Z",
+    "lastRunAt": null,
+    "status": "active"
+  }
+]
