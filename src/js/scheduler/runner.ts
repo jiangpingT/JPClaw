@@ -195,20 +195,22 @@ export async function runSchedulerOnce(filePath = DEFAULT_FILE): Promise<void> {
     }
 
     if (dueNow || (next && next <= now)) {
+      // 执行前先推进 nextRunAt 并存盘：防止服务在执行中途崩溃后重启时重复触发
+      task.lastRunAt = now.toISOString();
+      task.nextRunAt = computeNextRunAt(task, now)?.toISOString() || null;
+      if (/^\d{4}-\d{2}-\d{2}T/.test(task.schedule || "")) {
+        task.status = "done";
+      }
+      saveTasks(filePath, tasks);
+      log("info", "scheduler.task.executing", { taskId: task.id, action: task.action, newNextRunAt: task.nextRunAt });
+
       try {
-        log("info", "scheduler.task.executing", { taskId: task.id, action: task.action });
         await executeTask(task);
-        task.lastRunAt = now.toISOString();
-        task.nextRunAt = null;
-        task.nextRunAt = computeNextRunAt(task, now)?.toISOString() || null;
-        if (/^\d{4}-\d{2}-\d{2}T/.test(task.schedule || "")) {
-          task.status = "done";
-        }
-        changed = true;
-        log("info", "scheduler.task.executed", { taskId: task.id, newNextRunAt: task.nextRunAt });
+        log("info", "scheduler.task.executed", { taskId: task.id });
       } catch (error) {
         log("warn", "scheduler.task.failed", { taskId: task.id, error: String(error) });
       }
+      // nextRunAt 已在执行前存盘，无需再 changed = true
     } else if (next && task.nextRunAt !== next.toISOString()) {
       log("debug", "scheduler.task.update_next", { taskId: task.id, oldNext: task.nextRunAt, newNext: next.toISOString() });
       task.nextRunAt = next.toISOString();
