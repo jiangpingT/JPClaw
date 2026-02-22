@@ -355,13 +355,14 @@ export class DiscordBotHandler {
         return;
       }
 
-      // 通用文件附件：检测 file_attachment 标记，拦截发送图片/文件
+      // 通用文件附件：检测 file_attachment 标记，拦截发送图片/视频/音频
       const fileResult = tryParseFileAttachment(result.data);
       if (fileResult) {
         await message.reply({
           content: fileResult.caption,
           files: [{ attachment: fileResult.filePath }]
         });
+        fs.unlink(fileResult.filePath, () => {});
         return;
       }
 

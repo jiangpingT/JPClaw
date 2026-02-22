@@ -5,13 +5,13 @@ description: 用电脑麦克风录音8秒并转文字，告诉你电脑前有谁
 
 # Mic Listen Skill
 
-录制 MacBook Pro 内置麦克风 8 秒音频，经 Whisper STT 转文字后返回：
+录制 MacBook Pro 内置麦克风 10 秒音频，经 Whisper STT 转文字后返回：
 - `transcript`：原始转录文字
 - `summary`：AI 一句话解读（有没有人、说了什么）
 
 ## Input
 
-无需参数（时长固定 8 秒，设备固定 MacBook Pro麦克风 device[1]）。
+无需参数（时长固定 10 秒，设备固定 MacBook Pro麦克风 device[1]）。
 
 ## Output
 

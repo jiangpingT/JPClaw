@@ -314,11 +314,16 @@ export class TelegramBotHandler {
         return;
       }
 
-      // 通用文件附件：检测 file_attachment 标记，拦截发送图片/视频
+      // 通用文件附件：检测 file_attachment 标记，拦截发送图片/视频/音频
       const fileResult = tryParseFileAttachment(result.data);
       if (fileResult) {
         if (fileResult.mimeType?.startsWith("video/")) {
           await this.bot.sendVideo(chatId, fileResult.filePath, {
+            caption: fileResult.caption,
+            reply_to_message_id: msg.message_id
+          });
+        } else if (fileResult.mimeType?.startsWith("audio/")) {
+          await this.bot.sendAudio(chatId, fileResult.filePath, {
             caption: fileResult.caption,
             reply_to_message_id: msg.message_id
           });
@@ -328,6 +333,7 @@ export class TelegramBotHandler {
             reply_to_message_id: msg.message_id
           });
         }
+        fs.unlink(fileResult.filePath, () => {});
         return;
       }
 
