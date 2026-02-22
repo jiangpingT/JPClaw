@@ -58,8 +58,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-22T00:00:00.000Z",
-    "lastRunAt": "2026-02-21T00:00:58.081Z",
+    "nextRunAt": "2026-02-23T00:00:00.000Z",
+    "lastRunAt": "2026-02-22T00:03:15.176Z",
     "status": "active"
   },
   {
@@ -76,8 +76,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-21T13:00:00.000Z",
-    "lastRunAt": "2026-02-20T18:54:34.685Z",
+    "nextRunAt": "2026-02-22T13:00:00.000Z",
+    "lastRunAt": "2026-02-21T13:00:20.433Z",
     "status": "active"
   },
   {
@@ -123,8 +123,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-21T08:00:00.000Z",
-    "lastRunAt": "2026-02-20T08:00:53.970Z",
+    "nextRunAt": "2026-02-22T08:00:00.000Z",
+    "lastRunAt": "2026-02-21T08:00:43.219Z",
     "status": "active"
   },
   {
@@ -156,8 +156,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-21T00:00:00.000Z",
-    "nextRunAt": "2026-02-21T09:00:00.000Z",
-    "lastRunAt": null,
+    "nextRunAt": "2026-02-22T09:00:00.000Z",
+    "lastRunAt": "2026-02-21T09:00:01.768Z",
     "status": "active"
   }
 ]
