@@ -14,11 +14,13 @@ import { sendToTelegram } from "../_shared/proactive-utils.js";
 // ─── 配置 ────────────────────────────────────────────────────────────────────
 
 const DEFAULT_CITY = "北京";
+const HOME_CITY = "北京";   // 用于判断是否在家，影响天气播报逻辑
 const DEFAULT_CHANNEL_ID = "1469204772379693222";
 const DEFAULT_NEWS_TOPICS = ["AI", "科技", "创业"];
 const DISCORD_MSG_LIMIT = 2000;
 const CURL_TIMEOUT_MS = 20_000;
 const TASKS_FILE = path.resolve(process.cwd(), "sessions", "schedules", "tasks.json");
+const WEATHER_CACHE_DIR = path.resolve(process.cwd(), "sessions", "brain", "weather");
 
 // ─── 工具函数 ────────────────────────────────────────────────────────────────
 
@@ -102,6 +104,28 @@ function weekdayZh() {
 
 // ─── 数据获取：天气 ──────────────────────────────────────────────────────────
 
+function weatherCachePath(city, dateStr) {
+  return path.join(WEATHER_CACHE_DIR, `${dateStr}-${city}.json`);
+}
+
+function loadYesterdayWeather(city) {
+  try {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const yesterday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const p = weatherCachePath(city, yesterday);
+    if (!fs.existsSync(p)) return null;
+    return JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch { return null; }
+}
+
+function saveWeatherCache(city, dateStr, data) {
+  try {
+    if (!fs.existsSync(WEATHER_CACHE_DIR)) fs.mkdirSync(WEATHER_CACHE_DIR, { recursive: true });
+    fs.writeFileSync(weatherCachePath(city, dateStr), JSON.stringify(data), "utf-8");
+  } catch { /* 存档失败不影响主流程 */ }
+}
+
 async function fetchWeather(city) {
   try {
     const url = `https://wttr.in/${encodeURIComponent(city)}?format=j1`;
@@ -113,16 +137,49 @@ async function fetchWeather(city) {
     const today = data?.weather?.[0];
     if (!current) return null;
 
-    return {
+    // 最大降雨概率（取全天各时段最大值）
+    const hourly = today?.hourly ?? [];
+    const maxRainChance = Math.max(0, ...hourly.map(h => Number(h.chanceofrain ?? 0)));
+    const maxSnowChance = Math.max(0, ...hourly.map(h => Number(h.chanceofsnow ?? 0)));
+    const totalPrecipMM = hourly.reduce((s, h) => s + Number(h.precipMM ?? 0), 0);
+
+    // 极端天气判断（大风 / 暴雨雪 / 高温 / 寒潮）
+    const windKmph = Number(current.windspeedKmph ?? 0);
+    const tempC = Number(today?.mintempC ?? 99);
+    const maxTempC = Number(today?.maxtempC ?? -99);
+    const extremeFlags = [];
+    if (windKmph >= 60) extremeFlags.push(`大风 ${windKmph}km/h`);
+    if (maxRainChance >= 70 && totalPrecipMM >= 25) extremeFlags.push("暴雨");
+    if (maxSnowChance >= 60) extremeFlags.push("大雪");
+    if (tempC <= -10) extremeFlags.push(`寒潮（最低${tempC}°C）`);
+    if (maxTempC >= 37) extremeFlags.push(`高温${maxTempC}°C`);
+
+    const result = {
       city,
       desc: current.weatherDesc?.[0]?.value || "未知",
-      temp: current.temp_C ?? "--",
-      feelsLike: current.FeelsLikeC ?? "--",
+      temp: Number(current.temp_C ?? 0),
+      feelsLike: Number(current.FeelsLikeC ?? 0),
       humidity: current.humidity ?? "--",
-      windSpeed: current.windspeedKmph ?? "--",
-      maxTemp: today?.maxtempC ?? "--",
-      minTemp: today?.mintempC ?? "--",
+      windSpeed: windKmph,
+      maxTemp: Number(today?.maxtempC ?? 0),
+      minTemp: Number(today?.mintempC ?? 0),
+      maxRainChance,
+      totalPrecipMM: Math.round(totalPrecipMM * 10) / 10,
+      extremeFlags,
     };
+
+    // 保存今日缓存供明天对比
+    saveWeatherCache(city, todayString(), { maxTemp: result.maxTemp, minTemp: result.minTemp });
+
+    // 读取昨日缓存
+    const yesterday = loadYesterdayWeather(city);
+    result.yesterdayMaxTemp = yesterday?.maxTemp ?? null;
+    result.yesterdayMinTemp = yesterday?.minTemp ?? null;
+    result.tempDrop = (yesterday?.minTemp != null)
+      ? result.minTemp - yesterday.minTemp   // 负数 = 降温
+      : null;
+
+    return result;
   } catch (err) {
     return { city, error: err.message };
   }
@@ -236,10 +293,22 @@ async function generateBrief(weatherData, newsItems, activeTasks) {
   const contextParts = [];
 
   // 天气部分
+  const isHome = !weatherData?.error && weatherData?.city === HOME_CITY;
   if (weatherData && !weatherData.error) {
-    contextParts.push(
-      `【天气数据】\n城市: ${weatherData.city}\n天气: ${weatherData.desc}\n温度: ${weatherData.temp}°C, 体感 ${weatherData.feelsLike}°C\n湿度: ${weatherData.humidity}%, 风速: ${weatherData.windSpeed} km/h\n今日: ${weatherData.minTemp}°C ~ ${weatherData.maxTemp}°C`
-    );
+    const lines = [
+      `城市: ${weatherData.city}（${isHome ? "在家" : "出差"}）`,
+      `天气: ${weatherData.desc}`,
+      `今日温度: ${weatherData.minTemp}°C ~ ${weatherData.maxTemp}°C，体感 ${weatherData.feelsLike}°C`,
+      `风速: ${weatherData.windSpeed} km/h，湿度: ${weatherData.humidity}%`,
+      `降雨概率: ${weatherData.maxRainChance}%，今日降水: ${weatherData.totalPrecipMM}mm`,
+    ];
+    if (weatherData.tempDrop !== null) {
+      lines.push(`与昨日相比: 最低温${weatherData.tempDrop >= 0 ? "+" : ""}${weatherData.tempDrop}°C（昨日 ${weatherData.yesterdayMinTemp}~${weatherData.yesterdayMaxTemp}°C）`);
+    }
+    if (weatherData.extremeFlags.length > 0) {
+      lines.push(`⚠️ 极端天气: ${weatherData.extremeFlags.join("、")}`);
+    }
+    contextParts.push(`【天气数据】\n${lines.join("\n")}`);
   } else {
     contextParts.push(
       `【天气数据】\n数据暂不可用${weatherData?.error ? `（${weatherData.error}）` : ""}`
@@ -269,21 +338,34 @@ async function generateBrief(weatherData, newsItems, activeTasks) {
 
   const systemPrompt = `你是 JPClaw 的晨间简报助手「阿策」。请根据提供的数据生成一份简洁的晨间简报。
 
-格式要求：
-- 第一行必须是：☀️ 晨间简报 | ${date} ${weekday}
-- 用 📍 标记天气段落
-- 用 📰 标记新闻段落（选取最重要的 3-5 条，用简短的一句话描述每条）
-- 用 📋 标记待办段落
-- 用 💡 标记「阿策的建议」段落（基于天气和新闻给出 1-2 条实用建议）
-- 最后一行：---\nJPClaw 晨间简报 · 自动生成
+## 关于姜哥的个人背景（天气播报时必须考虑）
 
-风格要求：
-- 中文，简洁有力，不要啰嗦
-- 新闻标题保持简短
-- 天气用一行描述即可
-- 建议要实用、有趣
-- 不要使用 markdown 表格
-- 总长度控制在 1500 字符以内`;
+姜哥默认住在北京，经常出差外地。家里有两个孩子：
+- 大宝：2010年出生（现约15岁，上中学）
+- 二宝：2018年出生（现约7岁，上小学）
+
+## 天气播报规则
+
+**在北京（在家）时，必须明确回答以下问题：**
+1. 今日温度区间，并与昨日对比——如果最低温降幅 ≥ 5°C，必须提醒「明显降温，给孩子加衣」
+2. 是否下雨——如果降雨概率 ≥ 40%，明确说「需要给孩子备伞」
+3. 是否有极端天气——有则用 ⚠️ 标出
+4. 穿衣建议——结合温度和孩子年龄给出具体建议（大宝/二宝分开说如果差异大）
+
+**出差外地时，只需回答：**
+1. 是否有极端天气
+2. 穿衣建议（简短一句）
+
+## 输出格式
+
+第一行：☀️ 晨间简报 | ${date} ${weekday}
+📍 天气（按上述规则，简洁列点，不超过4行）
+📰 新闻（最重要3-5条，每条一句话）
+📋 今日任务（活跃定时任务数量即可）
+💡 阿策提示（1条，基于天气或新闻，实用）
+最后一行：---\nJPClaw 晨间简报 · 自动生成
+
+总长度控制在 1500 字符以内，中文，不用 markdown 表格。`;
 
   const userMessage = contextParts.join("\n\n");
 
