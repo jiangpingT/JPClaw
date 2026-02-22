@@ -314,13 +314,21 @@ export class TelegramBotHandler {
         return;
       }
 
-      // 通用文件附件：检测 file_attachment 标记，拦截发送图片/文件
+      // 通用文件附件：检测 file_attachment 标记，拦截发送图片/视频
       const fileResult = tryParseFileAttachment(result.data);
       if (fileResult) {
-        await this.bot.sendPhoto(chatId, fileResult.filePath, {
-          caption: fileResult.caption,
-          reply_to_message_id: msg.message_id
-        });
+        if (fileResult.mimeType?.startsWith("video/")) {
+          await this.bot.sendVideo(chatId, fileResult.filePath, {
+            caption: fileResult.caption,
+            reply_to_message_id: msg.message_id,
+            supports_streaming: true
+          });
+        } else {
+          await this.bot.sendPhoto(chatId, fileResult.filePath, {
+            caption: fileResult.caption,
+            reply_to_message_id: msg.message_id
+          });
+        }
         return;
       }
 
@@ -1190,16 +1198,16 @@ function tryParseRobotGif(text: string): { filePath: string; command: string } |
 }
 
 /**
- * 检测通用文件附件标记（如 screenshot skill）。
- * skill 返回格式：{"type":"file_attachment","filePath":"...","caption":"..."}
+ * 检测通用文件附件标记（screenshot / camera-capture 等 skill）。
+ * skill 返回格式：{"type":"file_attachment","filePath":"...","caption":"...","mimeType":"..."}
  */
-function tryParseFileAttachment(text: string): { filePath: string; caption: string } | null {
+function tryParseFileAttachment(text: string): { filePath: string; caption: string; mimeType?: string } | null {
   const idx = text.indexOf('{"type":"file_attachment"');
   if (idx === -1) return null;
   try {
     const parsed = JSON.parse(text.slice(idx));
     if (parsed.type === "file_attachment" && typeof parsed.filePath === "string") {
-      return { filePath: parsed.filePath, caption: String(parsed.caption || "") };
+      return { filePath: parsed.filePath, caption: String(parsed.caption || ""), mimeType: parsed.mimeType };
     }
   } catch {}
   return null;

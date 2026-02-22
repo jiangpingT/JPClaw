@@ -993,16 +993,17 @@ function tryParseRobotGif(text: string): { filePath: string; command: string } |
 }
 
 /**
- * 检测通用文件附件标记（如 screenshot skill）。
- * skill 返回格式：{"type":"file_attachment","filePath":"...","caption":"..."}
+ * 检测通用文件附件标记（screenshot / camera-capture 等 skill）。
+ * skill 返回格式：{"type":"file_attachment","filePath":"...","caption":"...","mimeType":"..."}
+ * Discord 通过 files 附件自动识别 MIME 类型，无需区分。
  */
-function tryParseFileAttachment(text: string): { filePath: string; caption: string } | null {
+function tryParseFileAttachment(text: string): { filePath: string; caption: string; mimeType?: string } | null {
   const idx = text.indexOf('{"type":"file_attachment"');
   if (idx === -1) return null;
   try {
     const parsed = JSON.parse(text.slice(idx));
     if (parsed.type === "file_attachment" && typeof parsed.filePath === "string") {
-      return { filePath: parsed.filePath, caption: String(parsed.caption || "") };
+      return { filePath: parsed.filePath, caption: String(parsed.caption || ""), mimeType: parsed.mimeType };
     }
   } catch {}
   return null;
