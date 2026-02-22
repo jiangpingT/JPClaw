@@ -521,6 +521,22 @@ export function startDiscordChannel(
           return;
         }
 
+        if (route === "robot_control") {
+          const command = raw.slice("/cat ".length).trim();
+          await message.reply("正在生成机器人动画...");
+          try {
+            const { simulateRobot } = await import("../robot/client.js");
+            const gif = await simulateRobot(command);
+            await message.reply({
+              files: [{ attachment: gif, name: "robot.gif" }],
+              allowedMentions: { repliedUser: false }
+            });
+          } catch (err) {
+            await message.reply(`机器人动画生成失败：${String(err)}`).catch(() => {});
+          }
+          return;
+        }
+
         if (route === "downloads") {
           await respondWithFastAck(
             message,
@@ -1420,6 +1436,7 @@ function detectRoute(
   userId?: string
 ):
   | "agent_admin"
+  | "robot_control"
   | "downloads"
   | "local_ops"
   | "web_command"
@@ -1429,6 +1446,7 @@ function detectRoute(
   | "agent_reply" {
   const lower = raw.toLowerCase();
   if (lower.startsWith("/agent ")) return "agent_admin";
+  if (lower.startsWith("/cat ")) return "robot_control";
   const hasEmbeddedPath = /~\/|\/users\/|\/downloads\/|\/desktop\/|\/documents\/|[a-z]:\\/.test(lower);
   const hasFindVerb = /(找|找到|查找|搜索|定位)/.test(raw);
 

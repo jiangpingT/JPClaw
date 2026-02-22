@@ -6,6 +6,7 @@
  */
 
 import crypto from "node:crypto";
+import fs from "node:fs";
 import type { Client, Message, TextChannel } from "discord.js";
 import type { ChatEngine } from "../core/engine.js";
 import { wrapChatEngine } from "../core/engine.js";
@@ -340,6 +341,17 @@ export class DiscordBotHandler {
           code: result.error.code,
           retryable: result.retryable
         });
+        return;
+      }
+
+      // robot-dog skill：检测 GIF 标记，拦截发送动画
+      const gifResult = tryParseRobotGif(result.data);
+      if (gifResult) {
+        await message.reply({
+          content: gifResult.command,
+          files: [{ attachment: gifResult.filePath }]
+        });
+        fs.unlink(gifResult.filePath, () => {});
         return;
       }
 
@@ -952,4 +964,20 @@ export class DiscordBotHandler {
       role: this.roleConfig.name
     });
   }
+}
+
+/**
+ * 检测 robot-dog skill 返回的 GIF 标记。
+ * skill 返回格式：[skill:robot-dog]\n{"type":"robot_gif","filePath":"...","command":"..."}
+ */
+function tryParseRobotGif(text: string): { filePath: string; command: string } | null {
+  const idx = text.indexOf('{"type":"robot_gif"');
+  if (idx === -1) return null;
+  try {
+    const parsed = JSON.parse(text.slice(idx));
+    if (parsed.type === "robot_gif" && typeof parsed.filePath === "string") {
+      return { filePath: parsed.filePath, command: String(parsed.command || "") };
+    }
+  } catch {}
+  return null;
 }

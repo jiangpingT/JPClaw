@@ -139,6 +139,7 @@ export class TelegramBotHandler {
       const hasAttachment = !!(msg.voice || msg.audio || msg.document || msg.photo?.length || msg.video || msg.video_note);
       if (!text && !hasAttachment) return;
 
+
       // 背压：队列满时丢弃
       if (this.messageQueue.length >= this.MAX_QUEUE_SIZE) {
         this.droppedMessageCount++;
@@ -299,6 +300,17 @@ export class TelegramBotHandler {
           code: result.error.code,
           retryable: result.retryable
         });
+        return;
+      }
+
+      // robot-dog skill：检测 GIF 标记，拦截发送动画
+      const gifResult = tryParseRobotGif(result.data);
+      if (gifResult) {
+        await this.bot.sendAnimation(chatId, gifResult.filePath, {
+          caption: gifResult.command,
+          reply_to_message_id: msg.message_id
+        });
+        fs.unlink(gifResult.filePath, () => {});
         return;
       }
 
@@ -1149,4 +1161,20 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return Promise.race([promise, timeout]).finally(() => {
     if (timer) clearTimeout(timer);
   }) as Promise<T>;
+}
+
+/**
+ * 检测 robot-dog skill 返回的 GIF 标记。
+ * skill 返回格式：[skill:robot-dog]\n{"type":"robot_gif","filePath":"...","command":"..."}
+ */
+function tryParseRobotGif(text: string): { filePath: string; command: string } | null {
+  const idx = text.indexOf('{"type":"robot_gif"');
+  if (idx === -1) return null;
+  try {
+    const parsed = JSON.parse(text.slice(idx));
+    if (parsed.type === "robot_gif" && typeof parsed.filePath === "string") {
+      return { filePath: parsed.filePath, command: String(parsed.command || "") };
+    }
+  } catch {}
+  return null;
 }
