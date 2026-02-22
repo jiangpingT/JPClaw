@@ -320,8 +320,7 @@ export class TelegramBotHandler {
         if (fileResult.mimeType?.startsWith("video/")) {
           await this.bot.sendVideo(chatId, fileResult.filePath, {
             caption: fileResult.caption,
-            reply_to_message_id: msg.message_id,
-            supports_streaming: true
+            reply_to_message_id: msg.message_id
           });
         } else {
           await this.bot.sendPhoto(chatId, fileResult.filePath, {

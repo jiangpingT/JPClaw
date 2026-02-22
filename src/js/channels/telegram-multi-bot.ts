@@ -13,6 +13,7 @@ import { log } from "../shared/logger.js";
 import { TelegramBotHandler } from "./telegram-bot-handler.js";
 import { ConversationStore } from "./telegram-conversation-store.js";
 import { getRoleConfig, aiDecideObservationDelay } from "./bot-roles.js";
+import { globalConfig } from "../shared/config-manager.js";
 
 export interface TelegramMultiBotStatus {
   bots: Array<{
@@ -60,20 +61,38 @@ async function startSingleBot(
     let roleConfig = getRoleConfig(agentId);
 
     if (roleConfig.participationStrategy === "ai_decide" && roleConfig.observationDelay === 0) {
-      log("info", "telegram.multi_bot.deciding_delay", {
-        name: config.name,
-        role: roleConfig.name
-      });
+      // 先尝试从配置管理器加载已保存的延迟值（与 discord-multi-bot 保持一致）
+      const configKey = `telegram.bot.roles.${agentId}.observationDelay`;
+      const savedDelay = globalConfig.getConfig<number>(configKey);
 
-      const aiDelay = await aiDecideObservationDelay(agent, roleConfig);
-      roleConfig = { ...roleConfig, observationDelay: aiDelay };
+      if (savedDelay !== undefined && savedDelay > 0) {
+        roleConfig = { ...roleConfig, observationDelay: savedDelay };
+        log("info", "telegram.multi_bot.delay_loaded", {
+          name: config.name,
+          role: roleConfig.name,
+          delayMs: savedDelay,
+          delaySec: (savedDelay / 1000).toFixed(1),
+          source: "config"
+        });
+      } else {
+        log("info", "telegram.multi_bot.deciding_delay", {
+          name: config.name,
+          role: roleConfig.name
+        });
 
-      log("info", "telegram.multi_bot.delay_decided", {
-        name: config.name,
-        role: roleConfig.name,
-        delayMs: aiDelay,
-        delaySec: (aiDelay / 1000).toFixed(1)
-      });
+        const aiDelay = await aiDecideObservationDelay(agent, roleConfig);
+        roleConfig = { ...roleConfig, observationDelay: aiDelay };
+
+        // 保存到配置管理器，下次重启直接复用
+        globalConfig.setConfig(configKey, aiDelay, "override");
+
+        log("info", "telegram.multi_bot.delay_decided", {
+          name: config.name,
+          role: roleConfig.name,
+          delayMs: aiDelay,
+          delaySec: (aiDelay / 1000).toFixed(1)
+        });
+      }
     }
 
     // 创建 Telegram Bot 实例
