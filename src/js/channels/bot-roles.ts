@@ -4,30 +4,9 @@
  * 泛化的Bot角色定义，通过配置驱动，无硬编码
  */
 
-import fs from "node:fs";
-import path from "node:path";
 import type { Message, TextChannel } from "discord.js";
 import { log } from "../shared/logger.js";
 import type { ChatEngine } from "../core/engine.js";
-import { getDefaultGatewayClient } from "../llm/gateway-client.js";
-
-const DELAY_CACHE_PATH = path.resolve(process.cwd(), "sessions", "bot-role-delays.json");
-
-function loadDelayCache(): Record<string, number> {
-  try {
-    if (fs.existsSync(DELAY_CACHE_PATH)) {
-      return JSON.parse(fs.readFileSync(DELAY_CACHE_PATH, "utf-8"));
-    }
-  } catch { /* ignore */ }
-  return {};
-}
-
-function saveDelayCache(cache: Record<string, number>): void {
-  try {
-    fs.mkdirSync(path.dirname(DELAY_CACHE_PATH), { recursive: true });
-    fs.writeFileSync(DELAY_CACHE_PATH, JSON.stringify(cache, null, 2), "utf-8");
-  } catch { /* ignore */ }
-}
 
 /**
  * Bot 角色配置
@@ -269,7 +248,7 @@ export async function aiDecideParticipation(
  * AI决定观察延迟（去除硬编码）
  */
 export async function aiDecideObservationDelay(
-  _agent: ChatEngine,
+  agent: ChatEngine,
   roleConfig: BotRoleConfig
 ): Promise<number> {
   // 如果是 always_user_question 策略，不需要观察延迟
@@ -277,43 +256,56 @@ export async function aiDecideObservationDelay(
     return 0;
   }
 
-  // 优先读缓存，避免每次重启都重问 AI
-  const cache = loadDelayCache();
-  if (cache[roleConfig.name] !== undefined) {
-    const cached = cache[roleConfig.name];
-    log("info", "bot_roles.ai_delay.from_cache", { role: roleConfig.name, delayMs: cached });
-    return cached;
-  }
-
   try {
-    // 直接调 LLM，不走 agent.reply（agent.reply 带对话历史，会答错）
-    const client = getDefaultGatewayClient();
-    const text = await client.chat(
-      `角色【${roleConfig.name}】：${roleConfig.description}\n\n该角色观察对话后决定是否参与，需要等待多少秒？\n- 快速质疑型：2-4秒\n- 中等观察型：5-8秒\n- 深度总结型：9-15秒\n\n只回答一个整数，例如：6`
-    ) ?? "";
-    const seconds = parseInt(text.trim(), 10);
+    const prompt = `你是【${roleConfig.name}】，${roleConfig.description}
+
+为了做出准确的参与判断，你需要观察对话多长时间？
+
+考虑因素：
+- 如果你需要快速反应、及时质疑，可以短一些（2-4秒）
+- 如果你需要观察较完整的对话，需要中等时间（5-8秒）
+- 如果你需要等待其他角色先发言，再做深度总结，需要更长（9-15秒）
+
+根据你的角色定位，你认为最合适的观察时间是多少秒？
+
+请只回答一个整数（秒数），比如：3 或 6 或 10
+不要解释，只回答数字。`;
+
+    const response = await agent.reply(prompt, {
+      userId: "system",
+      userName: "ObservationDelayDecision",
+      channelId: "internal"
+    });
+
+    const seconds = parseInt(response.trim(), 10);
 
     // 验证范围：2-15秒
     if (isNaN(seconds) || seconds < 2 || seconds > 15) {
-      log("warn", "bot_roles.ai_delay.invalid", { role: roleConfig.name, response: text, seconds });
-      const fallback = 5000;
-      cache[roleConfig.name] = fallback;
-      saveDelayCache(cache);
-      return fallback;
+      log("warn", "bot_roles.ai_delay.invalid", {
+        role: roleConfig.name,
+        response,
+        seconds
+      });
+      // 默认5秒
+      return 5000;
     }
 
     const delayMs = seconds * 1000;
-    cache[roleConfig.name] = delayMs;
-    saveDelayCache(cache);
 
-    log("info", "bot_roles.ai_delay.decided", { role: roleConfig.name, seconds, delayMs });
+    log("info", "bot_roles.ai_delay.decided", {
+      role: roleConfig.name,
+      seconds,
+      delayMs
+    });
+
     return delayMs;
   } catch (error) {
-    log("error", "bot_roles.ai_delay.failed", { role: roleConfig.name, error: String(error) });
-    const fallback = 5000;
-    cache[roleConfig.name] = fallback;
-    saveDelayCache(cache);
-    return fallback;
+    log("error", "bot_roles.ai_delay.failed", {
+      role: roleConfig.name,
+      error: String(error)
+    });
+    // 出错时默认5秒
+    return 5000;
   }
 }
 
