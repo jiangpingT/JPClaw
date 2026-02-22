@@ -1,24 +1,34 @@
 ---
 name: weather
-description: 天气信息查询工具。仅在用户明确询问/查询天气时调用（如"北京天气怎么样？"、"查一下今天天气"）。陈述句、评论、聊天内容（如"天气不错"、"北京现在天气已经很好了"）不要调用此工具，应该正常对话。查询全球城市的实时天气、天气预报、温度、湿度、风速等气象信息。自动检测地理位置或接受城市名称输入。
+description: 天气信息查询工具。仅在用户明确询问/查询天气时调用（如"北京天气怎么样？"、"查一下今天天气"、"上海天气"）。陈述句、评论、聊天内容（如"天气不错"、"最近天气真好"）不要调用此工具，应该正常对话。根据城市是否为北京（家）自动切换播报模式：北京关注降温幅度/孩子备伞/穿衣建议；外地关注极端天气/穿衣建议。
 ---
 
-# Weather
+# Weather Skill
 
-Query real-time weather information and forecasts for any location.
+查询实时天气，输出个性化播报。
 
-## Purpose
-Provide current weather conditions and forecasts using weather APIs.
+## 播报规则
 
-## Supported Features
-- Current weather conditions
-- Multi-day forecasts
-- Temperature, humidity, wind speed
-- Location-based or city name query
-- Support for global cities
+**北京（家）：**
+1. 今日温度 + 与昨日对比（降幅 ≥ 5°C 提醒孩子加衣）
+2. 是否备伞（降雨概率 ≥ 40% 提醒）
+3. 极端天气（有则标出）
+4. 穿衣建议（大宝约15岁 / 二宝约7岁）
+
+**外地（出差）：**
+1. 极端天气
+2. 穿衣建议
 
 ## Input
-City name or coordinates
+
+JSON 字段：
+- `city`（可选）：城市名，默认「北京」
+- `location`（可选）：同 city
 
 ## Output
-Structured weather data with temperature, conditions, and forecast
+
+JSON：
+- `ok`：是否成功
+- `city`：查询城市
+- `isHome`：是否为北京
+- `report`：天气播报文本
