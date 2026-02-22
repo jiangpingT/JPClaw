@@ -1,6 +1,6 @@
 ---
 name: camsnap
-description: 摄像头抓拍工具。从 RTSP/ONVIF 摄像头抓取画面或视频片段。支持摄像头发现、快照抓拍、视频录制、动作监控。适用于"抓拍摄像头"、"录制视频"、"摄像头监控"、"拍照XX摄像头"等查询。需要 ffmpeg，支持配置多个摄像头。
+description: 网络/IP摄像头抓拍工具（非电脑内置摄像头）。从 RTSP/ONVIF 网络摄像头抓取画面或视频片段。适用于"抓拍XX摄像头"、"监控摄像头录像"、"IP摄像头拍照"等查询。注意：若用户说"电脑摄像头"，应使用 camera-capture 而非本工具。
 homepage: https://camsnap.ai
 metadata:
   {
