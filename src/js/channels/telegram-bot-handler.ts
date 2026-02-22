@@ -314,6 +314,16 @@ export class TelegramBotHandler {
         return;
       }
 
+      // 通用文件附件：检测 file_attachment 标记，拦截发送图片/文件
+      const fileResult = tryParseFileAttachment(result.data);
+      if (fileResult) {
+        await this.bot.sendPhoto(chatId, fileResult.filePath, {
+          caption: fileResult.caption,
+          reply_to_message_id: msg.message_id
+        });
+        return;
+      }
+
       // XML 标签过滤
       let cleanedResponse = this.filterXmlTags(result.data);
 
@@ -1174,6 +1184,22 @@ function tryParseRobotGif(text: string): { filePath: string; command: string } |
     const parsed = JSON.parse(text.slice(idx));
     if (parsed.type === "robot_gif" && typeof parsed.filePath === "string") {
       return { filePath: parsed.filePath, command: String(parsed.command || "") };
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * 检测通用文件附件标记（如 screenshot skill）。
+ * skill 返回格式：{"type":"file_attachment","filePath":"...","caption":"..."}
+ */
+function tryParseFileAttachment(text: string): { filePath: string; caption: string } | null {
+  const idx = text.indexOf('{"type":"file_attachment"');
+  if (idx === -1) return null;
+  try {
+    const parsed = JSON.parse(text.slice(idx));
+    if (parsed.type === "file_attachment" && typeof parsed.filePath === "string") {
+      return { filePath: parsed.filePath, caption: String(parsed.caption || "") };
     }
   } catch {}
   return null;
