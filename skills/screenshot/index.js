@@ -7,7 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { sh, ensureDir, BRAIN_DIR } from "../_shared/proactive-utils.js";
+import { safeExec, ensureDir, BRAIN_DIR } from "../_shared/proactive-utils.js";
 
 const SCREENSHOT_DIR = path.join(BRAIN_DIR, "screenshots");
 
@@ -21,8 +21,8 @@ export async function run(input) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const filePath = path.join(SCREENSHOT_DIR, `screenshot-${timestamp}.png`);
 
-    // -x 静默截图（不播声音）
-    await sh(`screencapture -x "${filePath}"`);
+    // -x 静默截图（不播声音），使用全路径避免 PATH 问题
+    await safeExec("/usr/sbin/screencapture", ["-x", filePath]);
 
     if (!fs.existsSync(filePath)) {
       throw new Error("截图文件未生成，screencapture 可能失败");

@@ -23,7 +23,7 @@ export async function run(_input) {
 
     // 1280x720@30fps，crf28 控制文件大小，yuv420p 保证兼容性，-y 覆盖
     // 必须同时指定 framerate + video_size，AVFoundation 才能匹配到正确模式
-    await safeExec("ffmpeg", [
+    await safeExec("/opt/homebrew/bin/ffmpeg", [
       "-f", "avfoundation",
       "-framerate", "30",
       "-video_size", "1280x720",

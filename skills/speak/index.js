@@ -5,14 +5,10 @@
  * 使用 macOS 内置 say 命令，声音：婷婷（普通话）。
  */
 
-import { sh } from "../_shared/proactive-utils.js";
+import { safeExec } from "../_shared/proactive-utils.js";
 
 const DEFAULT_TEXT = "请住手，我马上报警了";
 const VOICE = "Tingting"; // macOS 普通话语音
-
-function escapeShell(str) {
-  return str.replace(/'/g, "'\\''");
-}
 
 export async function run(input) {
   try {
@@ -22,7 +18,8 @@ export async function run(input) {
     const text = (params.text || DEFAULT_TEXT).trim();
     if (!text) throw new Error("text 不能为空");
 
-    await sh(`say -v ${VOICE} '${escapeShell(text)}'`);
+    // 使用全路径避免服务 PATH 问题
+    await safeExec("/usr/bin/say", ["-v", VOICE, text]);
 
     return JSON.stringify({ ok: true, text, voice: VOICE });
   } catch (error) {
