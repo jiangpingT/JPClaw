@@ -69,15 +69,16 @@
     "action": "skill:proactive-coder",
     "payload": {
       "projects": [
-        "/Users/mlamp/Workspace/JPClaw"
+        "/Users/mlamp/Workspace/JPClaw",
+        "/Users/mlamp/Workspace/JPRobot"
       ],
       "channelId": "1469204772379693222",
       "depth": "standard",
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-22T13:00:00.000Z",
-    "lastRunAt": "2026-02-21T13:00:20.433Z",
+    "nextRunAt": "2026-02-23T13:00:00.000Z",
+    "lastRunAt": "2026-02-22T13:00:26.125Z",
     "status": "active"
   },
   {
@@ -97,8 +98,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-22T06:00:00.000Z",
-    "lastRunAt": "2026-02-21T06:00:43.151Z",
+    "nextRunAt": "2026-02-23T06:00:00.000Z",
+    "lastRunAt": "2026-02-22T06:00:50.891Z",
     "status": "active"
   },
   {
@@ -123,8 +124,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-22T08:00:00.000Z",
-    "lastRunAt": "2026-02-21T08:00:43.219Z",
+    "nextRunAt": "2026-02-23T08:00:00.000Z",
+    "lastRunAt": "2026-02-22T08:00:26.092Z",
     "status": "active"
   },
   {
@@ -134,7 +135,8 @@
     "action": "skill:proactive-coder",
     "payload": {
       "projects": [
-        "/Users/mlamp/Workspace/JPClaw"
+        "/Users/mlamp/Workspace/JPClaw",
+        "/Users/mlamp/Workspace/JPRobot"
       ],
       "channelId": "1469204772379693222",
       "telegramChatId": "-1003855994917",
@@ -156,8 +158,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-21T00:00:00.000Z",
-    "nextRunAt": "2026-02-22T09:00:00.000Z",
-    "lastRunAt": "2026-02-21T09:00:01.768Z",
+    "nextRunAt": "2026-02-23T09:00:00.000Z",
+    "lastRunAt": "2026-02-22T09:00:26.220Z",
     "status": "active"
   }
 ]
