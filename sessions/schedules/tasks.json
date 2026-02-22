@@ -45,7 +45,7 @@
   {
     "id": "morning_brief_daily",
     "name": "每日晨间简报",
-    "schedule": "FREQ=DAILY;BYHOUR=8;BYMINUTE=0",
+    "schedule": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
     "action": "skill:morning-brief",
     "payload": {
       "city": "北京",
@@ -58,7 +58,7 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-23T00:00:00.000Z",
+    "nextRunAt": "2026-02-23T01:00:00.000Z",
     "lastRunAt": "2026-02-22T00:03:15.176Z",
     "status": "active"
   },
