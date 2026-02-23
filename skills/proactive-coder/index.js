@@ -343,7 +343,10 @@ function buildPRDescription(analysis, results) {
 
 function buildDiscordReport(date, projectResults, dryRun, benchmark = null) {
   const lines = [];
-  lines.push(`🤖 **主动型程序员报告${dryRun ? " [DRY RUN]" : ""}** | ${date}`);
+  const title = benchmark
+    ? `📊 **主动程序员·周度深度报告${dryRun ? " [DRY RUN]" : ""}** | ${date}`
+    : `🤖 **主动型程序员日报${dryRun ? " [DRY RUN]" : ""}** | ${date}`;
+  lines.push(title);
   lines.push("");
 
   for (const proj of projectResults) {
