@@ -201,7 +201,7 @@ ${depthInstruction[depth] || depthInstruction.standard}
 
 // ─── 执行行动 ────────────────────────────────────────────────────────────────
 
-async function executeActions(projectPath, analysis, dryRun) {
+async function executeActions(projectPath, analysis, dryRun, depth) {
   const date = todayString();
   const branchName = `jpclaw/proactive-${date}-${Date.now()}`;
   const results = { actions: [], issues: [], prUrl: null };
@@ -292,7 +292,8 @@ async function executeActions(projectPath, analysis, dryRun) {
     await sh("git checkout main", { cwd, allowFail: true });
   }
 
-  // [P0] 创建 Issues，使用 safeExec
+  // [P0] 创建 Issues（仅 deep 模式），使用 safeExec
+  if (depth !== "deep") return results;
   for (const issue of analysis.issues || []) {
     try {
       const args = ["issue", "create", "--title", issue.title, "--body", issue.body || ""];
@@ -519,7 +520,7 @@ export async function run(input) {
           continue;
         }
 
-        const execResults = await executeActions(projectPath, analysis, effectiveDryRun);
+        const execResults = await executeActions(projectPath, analysis, effectiveDryRun, depth);
         projResult.actions = execResults.actions;
         projResult.issues = execResults.issues;
         projResult.prUrl = execResults.prUrl || null;
