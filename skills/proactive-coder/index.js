@@ -554,6 +554,7 @@ export async function run(input) {
         ]);
         benchmark = await analyzeBenchmark(jpcClawContext, openClawContext, marketContext);
       } catch (e) {
+        console.error("[proactive-coder] benchmark 分析失败:", e.message);
         benchmark = { error: e.message };
       }
     }
