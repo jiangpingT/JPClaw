@@ -210,23 +210,20 @@ async function executeActions(projectPath, analysis, dryRun) {
     (a) => a.type !== "issue" && a.files && a.files.length > 0
   );
   const hasFileActions = fileActions.length > 0;
+  const cwd = projectPath;
 
   if (dryRun) {
+    // 文件操作仅记录，不执行
     for (const action of fileActions) {
       results.actions.push({
         type: action.type, title: action.title, status: "dry_run",
         files: (action.files || []).map((f) => f.path),
       });
     }
-    for (const issue of analysis.issues || []) {
-      results.issues.push({ title: issue.title, status: "dry_run" });
-    }
-    return results;
+    // Issues 是无损操作，即使 dryRun 也真实创建（见下方统一创建逻辑）
   }
 
-  const cwd = projectPath;
-
-  if (hasFileActions) {
+  if (!dryRun && hasFileActions) {
     // 创建特性分支
     await sh("git checkout main", { cwd, allowFail: true });
     await sh("git pull --rebase origin main", { cwd, allowFail: true });
@@ -348,7 +345,13 @@ function buildDiscordReport(date, projectResults, dryRun, benchmark = null) {
   for (const proj of projectResults) {
     lines.push(`📂 **${path.basename(proj.path)}**`);
     if (proj.summary) lines.push(`> ${proj.summary}`);
-    if (proj.skipReason) { lines.push(`⏭️ 跳过: ${proj.skipReason}`, ""); continue; }
+    if (proj.skipReason && !proj.actions?.length && !proj.issues?.length) {
+      lines.push(`⏭️ 跳过: ${proj.skipReason}`, "");
+      continue;
+    }
+    if (proj.skipReason) {
+      lines.push(`🔍 **分析模式**（${proj.skipReason}）`);
+    }
 
     if (proj.actions?.length > 0) {
       lines.push("**执行的行动:**");
