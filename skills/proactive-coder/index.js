@@ -292,9 +292,12 @@ async function executeActions(projectPath, analysis, dryRun, depth) {
     await sh("git checkout main", { cwd, allowFail: true });
   }
 
-  // [P0] 创建 Issues（仅 deep 模式），使用 safeExec
-  if (depth !== "deep") return results;
+  // [P0] Issues：deep 模式真实创建，其余模式记录为观察建议
   for (const issue of analysis.issues || []) {
+    if (depth !== "deep") {
+      results.issues.push({ title: issue.title, status: "observation" });
+      continue;
+    }
     try {
       const args = ["issue", "create", "--title", issue.title, "--body", issue.body || ""];
       const labels = (issue.labels || []).join(",");
@@ -362,9 +365,10 @@ function buildDiscordReport(date, projectResults, dryRun, benchmark = null) {
       }
     }
     if (proj.issues?.length > 0) {
-      lines.push("**创建的 Issue:**");
+      const allObservations = proj.issues.every((i) => i.status === "observation");
+      lines.push(allObservations ? "**AI 观察建议:**" : "**创建的 Issue:**");
       for (const i of proj.issues) {
-        const emoji = i.status === "created" ? "📋" : i.status === "dry_run" ? "🔍" : "❌";
+        const emoji = i.status === "created" ? "📋" : i.status === "observation" ? "💡" : i.status === "dry_run" ? "🔍" : "❌";
         lines.push(`${emoji} ${i.title}${i.url ? ` - ${i.url}` : ""}`);
       }
     }
