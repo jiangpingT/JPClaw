@@ -458,6 +458,9 @@ async function analyzeBenchmark(jpcClawContext, openClawContext, marketContext) 
 
 function buildBenchmarkSection(benchmark) {
   if (!benchmark) return "";
+  if (benchmark.error) {
+    return ["", "---", "📊 **基准对比分析**", "", `❌ 分析失败：${benchmark.error}`].join("\n");
+  }
   const lines = ["", "---", "📊 **基准对比分析**", ""];
 
   if (benchmark.strengths?.length) {
