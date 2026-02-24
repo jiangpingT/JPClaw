@@ -95,6 +95,10 @@ export class TelegramBotHandler {
   private readonly MAX_CONCURRENT = 5;
   private droppedMessageCount = 0;
 
+  // message_id 去重（防止 Telegram polling 重发同一条消息）
+  private processedMessageIds = new Map<string, number>();
+  private readonly DEDUPE_WINDOW_MS = 10000; // 10 秒内同一消息只处理一次
+
   // 附件临时目录
   private readonly tempDir: string;
 
@@ -133,6 +137,19 @@ export class TelegramBotHandler {
     try {
       // 过滤 bot 消息
       if (msg.from?.is_bot) return;
+
+      // message_id 去重：防止 Telegram polling 重发同一条消息被处理两次
+      const dedupeKey = `${msg.chat.id}:${msg.message_id}`;
+      const lastSeen = this.processedMessageIds.get(dedupeKey);
+      if (lastSeen && Date.now() - lastSeen <= this.DEDUPE_WINDOW_MS) {
+        log("info", "telegram.bot_handler.message.deduped", {
+          role: this.roleConfig.name,
+          chatId: msg.chat.id,
+          messageId: msg.message_id
+        });
+        return;
+      }
+      this.processedMessageIds.set(dedupeKey, Date.now());
 
       // 提取文本（语音/文件消息可能没有文本，也放行）
       const text = (msg.text || msg.caption || "").trim();
@@ -339,6 +356,20 @@ export class TelegramBotHandler {
 
       // XML 标签过滤
       let cleanedResponse = this.filterXmlTags(result.data);
+
+      // 拦截 proactive skill 返回的原始 JSON：转为友好提示
+      if (cleanedResponse.trimStart().startsWith("{") || cleanedResponse.trimStart().startsWith("[")) {
+        try {
+          const parsed = JSON.parse(cleanedResponse);
+          if (parsed && typeof parsed === "object" && "ok" in parsed) {
+            cleanedResponse = parsed.ok
+              ? "✅ 已完成，报告已推送到频道。"
+              : `❌ 执行失败：${parsed.error || "未知错误"}`;
+          }
+        } catch {
+          // 不是合法 JSON，原样保留
+        }
+      }
 
       if (!cleanedResponse) {
         cleanedResponse = "抱歉，我的回复包含了一些技术细节，已被过滤。请重新提问，我会给您一个更清晰的答复。";
