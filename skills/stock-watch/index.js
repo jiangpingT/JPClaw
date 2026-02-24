@@ -90,12 +90,21 @@ function toHkd(value, currency, usdHkd) {
   return currency === "USD" ? value * usdHkd : value;
 }
 
+// 用于 Discord/Telegram 显示（保留万单位）
 function fmtHkd(value) {
   if (value == null) return "N/A";
   if (value >= 1e12) return `HK$${(value / 1e12).toFixed(2)}万亿`;
   if (value >= 1e8)  return `HK$${(value / 1e8).toFixed(2)}亿`;
   if (value >= 1e4)  return `HK$${(value / 1e4).toFixed(2)}万`;
   return `HK$${value.toFixed(2)}`;
+}
+
+// 用于传给 AI 的数据文本，统一用"亿"，避免 AI 换算万/亿出错
+function fmtYi(value) {
+  if (value == null) return "N/A";
+  const yi = value / 1e8;
+  if (yi >= 1e4) return `HK$${(yi / 1e4).toFixed(2)}万亿`;
+  return `HK$${yi.toFixed(2)}亿`;
 }
 
 function fmtChange(price, prevClose) {
@@ -127,8 +136,8 @@ async function generateReport(rows, usdHkd, date) {
 
   const header = `今日日期：${date}\nUSD/HKD：${usdHkd.toFixed(4)}\n`;
   const dataText = rows.map(r => {
-    const mktCap  = fmtHkd(r.marketCapHkd);
-    const turnover = fmtHkd(r.turnoverHkd);
+    const mktCap  = fmtYi(r.marketCapHkd);
+    const turnover = fmtYi(r.turnoverHkd);
     const change   = fmtChange(r.price, r.prevClose);
     return `${r.name}(${r.ticker}) | 价格:${r.price ?? "N/A"} ${r.currency} | 涨跌:${change} | 市值:${mktCap} | 成交额:${turnover}`;
   }).join("\n");
