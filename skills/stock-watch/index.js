@@ -3,12 +3,14 @@
  *
  * 每日 17:00 追踪指定股票的市值和当日成交额，
  * 所有金额统一换算成港币，推送到 Telegram/Discord。
+ *
+ * 数据来源：东方财富 API（f116=总市值，f48=成交额，含 WVR 双重股权结构修正）
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import {
-  runCurl, safeExec, todayString, ensureDir,
+  runCurl, todayString, ensureDir,
   callAnthropic, sendToDiscord, sendToTelegram, BRAIN_DIR,
 } from "../_shared/proactive-utils.js";
 
@@ -40,69 +42,44 @@ async function fetchUsdHkdRate() {
   }
 }
 
-// 服务以 daemon 运行时 PATH 不含 miniforge/conda，需要动态查找有 yfinance 的 python3
-const PYTHON3_CANDIDATES = [
-  "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
-  "/opt/homebrew/opt/python3/bin/python3",
-  "/usr/local/bin/python3",
-  "/usr/bin/python3",
-];
-let _python3Path = null;
-
-async function resolvePython3() {
-  if (_python3Path) return _python3Path;
-  for (const p of PYTHON3_CANDIDATES) {
-    try {
-      await safeExec(p, ["-c", "import yfinance"], { timeout: 5_000 });
-      _python3Path = p;
-      return p;
-    } catch {}
+/**
+ * 将 ticker 转为东方财富 secid 格式
+ * 港股：0100.HK → 116.00100（f116 单位 HKD）
+ * 美股：APP → 105.APP（f116 单位 USD，NASDAQ/NYSE 均用 105）
+ */
+function tickerToSecid(ticker) {
+  if (ticker.endsWith(".HK")) {
+    const code = ticker.replace(".HK", "").padStart(5, "0");
+    return { secid: `116.${code}`, currency: "HKD" };
   }
-  // 最后兜底，用 PATH 里的 python3（大概率没有 yfinance，但也会明确报错）
-  _python3Path = "python3";
-  return _python3Path;
+  return { secid: `105.${ticker}`, currency: "USD" };
 }
 
-// 用 yfinance 批量拉市值（quoteSummary 需要 crumb，yfinance 内部处理了鉴权）
-async function fetchMarketCaps(tickers) {
-  const pyCode = `
-import sys, json, yfinance as yf
-result = {}
-for s in sys.argv[1:]:
-    try:
-        tk = yf.Ticker(s)
-        info = tk.info
-        mc = info.get('marketCap') or tk.fast_info.market_cap
-        curr = info.get('currency') or tk.fast_info.currency
-        result[s] = {'marketCap': mc, 'currency': curr}
-    except Exception as e:
-        result[s] = {'error': str(e)}
-print(json.dumps(result))
-`.trim();
-  try {
-    const python3 = await resolvePython3();
-    const out = await safeExec(python3, ["-c", pyCode, ...tickers], { timeout: 40_000 });
-    return JSON.parse(out);
-  } catch (e) {
-    console.warn("[stock-watch] fetchMarketCaps 失败:", e.message);
-    return {};
-  }
-}
-
-async function fetchQuote(ticker) {
-  const raw = await runCurl(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
-    ["-H", "User-Agent: Mozilla/5.0"]
-  );
-  const m = JSON.parse(raw).chart.result[0].meta;
+/**
+ * 从东方财富拉取单只股票的完整行情。
+ * f43=最新价, f44=最高, f45=最低, f47=成交量(股), f48=成交额(本币),
+ * f60=昨收, f116=总市值(本币，含 WVR 双重股权修正)
+ */
+async function fetchEastmoney(ticker) {
+  const { secid, currency } = tickerToSecid(ticker);
+  const fields = "f43,f44,f45,f46,f47,f48,f60,f116";
+  const url = `https://push2.eastmoney.com/api/qt/stock/get?invt=2&fltt=2&fields=${fields}&secid=${secid}`;
+  const raw = await runCurl(url, [
+    "-H", "Referer: https://quote.eastmoney.com/",
+    "-H", "User-Agent: Mozilla/5.0",
+  ]);
+  const d = JSON.parse(raw)?.data;
+  if (!d || d.f43 == null) throw new Error(`东方财富无数据: ${ticker}`);
   return {
     ticker,
-    currency: m.currency,                         // "HKD" 或 "USD"
-    price: m.regularMarketPrice,                  // 当前价格
-    prevClose: m.chartPreviousClose,              // 昨收
-    volume: m.regularMarketVolume,                // 成交量（股数）
-    dayHigh: m.regularMarketDayHigh,
-    dayLow: m.regularMarketDayLow,
+    currency,
+    price:     d.f43,   // 最新价
+    prevClose: d.f60,   // 昨收
+    dayHigh:   d.f44,   // 当日最高
+    dayLow:    d.f45,   // 当日最低
+    volume:    d.f47,   // 成交量（股数）
+    turnover:  d.f48,   // 成交额（本币，HKD 或 USD）
+    marketCap: d.f116,  // 总市值（含 WVR 双重股权，本币）
   };
 }
 
@@ -148,12 +125,11 @@ async function generateReport(rows, usdHkd, date) {
 - 简洁，不加多余评论
 - 如果某只股票数据缺失，标注「数据不可用」`;
 
-  // 把日期放在数据里，而非只放系统提示，避免 AI 用数据中的旧日期
   const header = `今日日期：${date}\nUSD/HKD：${usdHkd.toFixed(4)}\n`;
   const dataText = rows.map(r => {
-    const mktCap = fmtHkd(r.marketCapHkd);
+    const mktCap  = fmtHkd(r.marketCapHkd);
     const turnover = fmtHkd(r.turnoverHkd);
-    const change = fmtChange(r.price, r.prevClose);
+    const change   = fmtChange(r.price, r.prevClose);
     return `${r.name}(${r.ticker}) | 价格:${r.price ?? "N/A"} ${r.currency} | 涨跌:${change} | 市值:${mktCap} | 成交额:${turnover}`;
   }).join("\n");
 
@@ -172,36 +148,29 @@ export async function run(input) {
     const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
     const date = todayString();
 
-    const tickers = watchlist.map(s => s.ticker);
-
-    // ① 并行拉行情 + 汇率 + 市值
-    const [usdHkdResult, marketCapsResult, ...quoteResults] = await Promise.allSettled([
+    // ① 并行拉汇率 + 各股行情（东方财富一站式提供价格/成交额/市值）
+    const [usdHkdResult, ...stockResults] = await Promise.allSettled([
       fetchUsdHkdRate(),
-      fetchMarketCaps(tickers),
-      ...watchlist.map(s => fetchQuote(s.ticker)),
+      ...watchlist.map(s => fetchEastmoney(s.ticker)),
     ]);
 
     const usdHkd = usdHkdResult.status === "fulfilled" ? usdHkdResult.value : 7.78;
-    const marketCaps = marketCapsResult.status === "fulfilled" ? marketCapsResult.value : {};
 
     // ② 组装行数据，统一换算 HKD
     const rows = watchlist.map((stock, i) => {
-      const r = quoteResults[i];
+      const r = stockResults[i];
       if (r.status !== "fulfilled") {
         return { ...stock, error: r.reason?.message ?? "fetch failed" };
       }
       const q = r.value;
-      const mc = marketCaps[stock.ticker];
-      const turnoverLocal = (q.price ?? 0) * (q.volume ?? 0);
-      const marketCapLocal = mc?.marketCap ?? null;
       return {
         ...stock,
         price:        q.price,
         prevClose:    q.prevClose,
         currency:     q.currency,
         volume:       q.volume,
-        turnoverHkd:  toHkd(turnoverLocal, q.currency, usdHkd),
-        marketCapHkd: toHkd(marketCapLocal, mc?.currency ?? q.currency, usdHkd),
+        turnoverHkd:  toHkd(q.turnover,   q.currency, usdHkd),
+        marketCapHkd: toHkd(q.marketCap,  q.currency, usdHkd),
         dayHigh:      q.dayHigh,
         dayLow:       q.dayLow,
       };
