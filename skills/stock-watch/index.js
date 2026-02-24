@@ -40,6 +40,29 @@ async function fetchUsdHkdRate() {
   }
 }
 
+// 服务以 daemon 运行时 PATH 不含 miniforge/conda，需要动态查找有 yfinance 的 python3
+const PYTHON3_CANDIDATES = [
+  "/opt/homebrew/Caskroom/miniforge/base/bin/python3",
+  "/opt/homebrew/opt/python3/bin/python3",
+  "/usr/local/bin/python3",
+  "/usr/bin/python3",
+];
+let _python3Path = null;
+
+async function resolvePython3() {
+  if (_python3Path) return _python3Path;
+  for (const p of PYTHON3_CANDIDATES) {
+    try {
+      await safeExec(p, ["-c", "import yfinance"], { timeout: 5_000 });
+      _python3Path = p;
+      return p;
+    } catch {}
+  }
+  // 最后兜底，用 PATH 里的 python3（大概率没有 yfinance，但也会明确报错）
+  _python3Path = "python3";
+  return _python3Path;
+}
+
 // 用 yfinance 批量拉市值（quoteSummary 需要 crumb，yfinance 内部处理了鉴权）
 async function fetchMarketCaps(tickers) {
   const pyCode = `
@@ -47,16 +70,21 @@ import sys, json, yfinance as yf
 result = {}
 for s in sys.argv[1:]:
     try:
-        fi = yf.Ticker(s).fast_info
-        result[s] = {'marketCap': fi.market_cap, 'currency': fi.currency}
+        tk = yf.Ticker(s)
+        info = tk.info
+        mc = info.get('marketCap') or tk.fast_info.market_cap
+        curr = info.get('currency') or tk.fast_info.currency
+        result[s] = {'marketCap': mc, 'currency': curr}
     except Exception as e:
         result[s] = {'error': str(e)}
 print(json.dumps(result))
 `.trim();
   try {
-    const out = await safeExec("python3", ["-c", pyCode, ...tickers], { timeout: 40_000 });
+    const python3 = await resolvePython3();
+    const out = await safeExec(python3, ["-c", pyCode, ...tickers], { timeout: 40_000 });
     return JSON.parse(out);
-  } catch {
+  } catch (e) {
+    console.warn("[stock-watch] fetchMarketCaps 失败:", e.message);
     return {};
   }
 }
@@ -139,9 +167,9 @@ export async function run(input) {
     let params = {};
     try { params = typeof input === "string" ? JSON.parse(input) : input || {}; } catch { params = {}; }
 
-    const watchlist   = params.watchlist   || DEFAULT_WATCHLIST;
-    const channelId   = params.channelId;
-    const telegramChatId = params.telegramChatId;
+    const watchlist      = params.watchlist      || DEFAULT_WATCHLIST;
+    const channelId      = params.channelId      || process.env.DEFAULT_DISCORD_CHANNEL_ID;
+    const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
     const date = todayString();
 
     const tickers = watchlist.map(s => s.ticker);

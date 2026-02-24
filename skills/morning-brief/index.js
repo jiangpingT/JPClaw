@@ -15,7 +15,7 @@ import { sendToTelegram } from "../_shared/proactive-utils.js";
 
 const DEFAULT_CITY = "北京";
 const HOME_CITY = "北京";   // 用于判断是否在家，影响天气播报逻辑
-const DEFAULT_CHANNEL_ID = "1469204772379693222";
+const DEFAULT_CHANNEL_ID = process.env.DEFAULT_DISCORD_CHANNEL_ID;
 const DEFAULT_NEWS_TOPICS = ["AI", "科技", "创业"];
 const DISCORD_MSG_LIMIT = 2000;
 const CURL_TIMEOUT_MS = 20_000;
@@ -367,7 +367,7 @@ async function generateBrief(weatherData, newsItems, activeTasks) {
 
 总长度控制在 1500 字符以内，中文，不用 markdown 表格。`;
 
-  const userMessage = contextParts.join("\n\n");
+  const userMessage = `今天是 ${date}（${weekday}）\n\n` + contextParts.join("\n\n");
 
   const body = {
     model: "claude-sonnet-4-20250514",
@@ -485,7 +485,7 @@ export async function run(input) {
 
     const city = params.city || DEFAULT_CITY;
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
-    const telegramChatId = params.telegramChatId;
+    const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
     const newsTopics = params.newsTopics || DEFAULT_NEWS_TOPICS;
 
     // ① 并行获取数据

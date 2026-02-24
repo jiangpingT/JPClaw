@@ -19,7 +19,7 @@ const DEFAULT_KEYWORDS = ["LLM", "Claude", "AI", "TypeScript"];
 const DEFAULT_SOURCES = ["reddit", "hackernews"];
 const DEFAULT_LOOKBACK_DAYS = 30;
 const DEFAULT_MIN_ENGAGEMENT = 10;
-const DEFAULT_CHANNEL_ID = "1469204772379693222";
+const DEFAULT_CHANNEL_ID = process.env.DEFAULT_DISCORD_CHANNEL_ID;
 const RADAR_DIR = path.join(BRAIN_DIR, "radar");
 
 // Reddit 要求设置 User-Agent，否则返回 429
@@ -238,7 +238,7 @@ export async function run(input) {
     const lookbackDays = params.lookbackDays || DEFAULT_LOOKBACK_DAYS;
     const minEngagement = params.minEngagement || DEFAULT_MIN_ENGAGEMENT;
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
-    const telegramChatId = params.telegramChatId;
+    const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
     const date = todayString();
 
     // ① 多源采集（传入 lookbackDays）

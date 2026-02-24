@@ -17,7 +17,7 @@ import {
 
 const DEFAULT_TOPICS = ["AI", "LLM", "TypeScript", "创业"];
 const DEFAULT_DEPTH = "standard";
-const DEFAULT_CHANNEL_ID = "1469204772379693222";
+const DEFAULT_CHANNEL_ID = process.env.DEFAULT_DISCORD_CHANNEL_ID;
 const REPORTS_DIR = path.join(BRAIN_DIR, "reports");
 
 // ─── 数据采集 ────────────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ export async function run(input) {
     const topics = params.topics || DEFAULT_TOPICS;
     const depth = params.depth || DEFAULT_DEPTH;
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
-    const telegramChatId = params.telegramChatId;
+    const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
     const date = todayString();
 
     // ① 并行多源采集

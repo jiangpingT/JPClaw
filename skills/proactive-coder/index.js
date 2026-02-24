@@ -10,11 +10,12 @@ import path from "node:path";
 import {
   sh, safeExec, todayString, isPathSafe,
   callAnthropicJSON, sendToDiscord, sendToTelegram,
+  loadProjectSuggestions, saveProjectSuggestions,
 } from "../_shared/proactive-utils.js";
 
 // ─── 配置 ────────────────────────────────────────────────────────────────────
 
-const DEFAULT_CHANNEL_ID = "1469204772379693222";
+const DEFAULT_CHANNEL_ID = process.env.DEFAULT_DISCORD_CHANNEL_ID;
 const DEFAULT_DEPTH = "standard";
 
 // 安全边界：禁止操作的文件模式（精确匹配）
@@ -86,7 +87,7 @@ async function scanProject(projectPath, depth) {
 
 // ─── AI 分析 ─────────────────────────────────────────────────────────────────
 
-async function analyzeWithAI(projectScan, depth) {
+async function analyzeWithAI(projectScan, depth, recentSuggestions = []) {
   const depthInstruction = {
     quick: "只看最明显的问题，最多给出 2 个行动建议。",
     standard: "全面审查，给出 3-5 个行动建议。",
@@ -167,6 +168,11 @@ ${depthInstruction[depth] || depthInstruction.standard}
     contextParts.push(`## 工作区状态\n干净（无未提交更改）`);
   }
 
+  if (recentSuggestions.length > 0) {
+    const list = recentSuggestions.map((t) => `- ${t}`).join("\n");
+    contextParts.push(`## 过去 30 天已提过的建议（请勿重复，发现新问题）\n${list}`);
+  }
+
   contextParts.push(`## 最近提交记录\n\`\`\`\n${projectScan.gitLog}\n\`\`\``);
   if (projectScan.gitDiff) {
     contextParts.push(`## 最近变更统计\n\`\`\`\n${projectScan.gitDiff}\n\`\`\``);
@@ -201,7 +207,7 @@ ${depthInstruction[depth] || depthInstruction.standard}
 
 // ─── 执行行动 ────────────────────────────────────────────────────────────────
 
-async function executeActions(projectPath, analysis, dryRun, depth) {
+async function executeActions(projectPath, analysis, dryRun, depth, allowCreateIssues = true) {
   const date = todayString();
   const branchName = `jpclaw/proactive-${date}-${Date.now()}`;
   const results = { actions: [], issues: [], prUrl: null };
@@ -292,9 +298,9 @@ async function executeActions(projectPath, analysis, dryRun, depth) {
     await sh("git checkout main", { cwd, allowFail: true });
   }
 
-  // [P0] Issues：deep 模式真实创建，其余模式记录为观察建议
+  // [P0] Issues：deep 模式 + 允许创建时才真实创建，其余记录为观察建议
   for (const issue of analysis.issues || []) {
-    if (depth !== "deep") {
+    if (depth !== "deep" || !allowCreateIssues) {
       results.issues.push({ title: issue.title, status: "observation" });
       continue;
     }
@@ -341,9 +347,9 @@ function buildPRDescription(analysis, results) {
   return lines.join("\n");
 }
 
-function buildDiscordReport(date, projectResults, dryRun, benchmark = null) {
+function buildDiscordReport(date, projectResults, dryRun, weeklyInsight = null) {
   const lines = [];
-  const title = benchmark
+  const title = weeklyInsight
     ? `📊 **主动程序员·周度深度报告${dryRun ? " [DRY RUN]" : ""}** | ${date}`
     : `🤖 **主动型程序员日报${dryRun ? " [DRY RUN]" : ""}** | ${date}`;
   lines.push(title);
@@ -380,7 +386,7 @@ function buildDiscordReport(date, projectResults, dryRun, benchmark = null) {
     lines.push("");
   }
 
-  if (benchmark) lines.push(buildBenchmarkSection(benchmark));
+  if (weeklyInsight) lines.push(buildWeeklyInsightSection(weeklyInsight));
   lines.push("---", "JPClaw 主动型程序员 · 自动生成");
   return lines.join("\n");
 }
@@ -432,62 +438,149 @@ async function gatherMarketContext() {
   }
 }
 
-async function analyzeBenchmark(jpcClawContext, openClawContext, marketContext) {
-  const systemPrompt = `你是技术架构分析师。对比 JPClaw 与同类产品，给出具体可行的升级建议。
+// ─── 周报深度洞察（基准对比 + 架构反思，单次 AI 调用）────────────────────────
 
-输出严格 JSON（不含 markdown 标记）：
+/** 收集项目代码结构上下文（目录树、文件统计、关键文件） */
+async function gatherArchitectContext(projectPath) {
+  const cwd = projectPath;
+  const parts = [];
+
+  const dirTree = await sh(
+    "find src/ -type d -maxdepth 3 2>/dev/null || find . -type d -maxdepth 2 -not -path '*/node_modules/*' -not -path '*/.git/*'",
+    { cwd, allowFail: true }
+  );
+  if (dirTree) parts.push(`### 目录结构\n${dirTree}`);
+
+  const [srcCount, testCount] = await Promise.allSettled([
+    sh("find src/ -name '*.ts' -o -name '*.js' -o -name '*.py' 2>/dev/null | grep -v test | grep -v spec | wc -l", { cwd, allowFail: true }),
+    sh("find . -name '*.test.ts' -o -name '*.test.js' -o -name '*.spec.ts' -o -name '*.spec.js' 2>/dev/null | wc -l", { cwd, allowFail: true }),
+  ]);
+  const src = srcCount.status === "fulfilled" ? srcCount.value.trim() : "?";
+  const test = testCount.status === "fulfilled" ? testCount.value.trim() : "?";
+  parts.push(`### 文件统计\n源文件数: ${src}  测试文件数: ${test}`);
+
+  const keyFiles = [
+    "src/js/gateway/index.ts", "src/js/core/engine.ts",
+    "src/js/security/middleware.ts", "src/js/scheduler/runner.ts",
+    "train.py", "requirements.txt",
+  ];
+  for (const rel of keyFiles) {
+    const fp = path.join(projectPath, rel);
+    try {
+      if (fs.existsSync(fp)) {
+        const content = fs.readFileSync(fp, "utf-8").split("\n").slice(0, 120).join("\n");
+        parts.push(`### ${rel}\n\`\`\`\n${content}\n\`\`\``);
+      }
+    } catch {}
+  }
+
+  return parts.join("\n\n");
+}
+
+/**
+ * 单次 AI 调用，同时完成「基准对比」+「架构反思」，避免两份报告内容重复。
+ * 返回合并 JSON：{ benchmark: {...}, architecture: {...} }
+ */
+async function analyzeWeeklyInsight(jpcClawContext, openClawContext, marketContext, architectContext) {
+  const systemPrompt = `你是兼具产品竞争力视角和系统架构师视角的技术负责人。
+请基于下方材料，同时完成两项分析并输出合并 JSON（不含 markdown 标记）：
+
+1. **基准对比**（benchmark）：JPClaw 与竞品、市场框架的差距与建议
+2. **架构反思**（architecture）：JPClaw 自身代码质量的客观评分
+
+重要：两部分内容不得重复同一条具体发现。benchmark 聚焦「外部竞争力差距」，architecture 聚焦「内部代码质量」。
+
+输出格式：
 {
-  "vsOpenClaw": [
-    { "dimension": "对比维度", "jpclaw": "JPClaw现状", "openclaw": "OpenClaw现状", "gap": "差距描述", "suggestion": "具体建议" }
-  ],
-  "vsMarket": [
-    { "feature": "特性名", "marketBest": "市场标杆做法", "jpclaw": "JPClaw现状", "priority": "P0|P1|P2", "suggestion": "具体建议" }
-  ],
-  "topSuggestions": ["最重要的3-5条升级建议（具体可执行，非泛泛而谈）"],
-  "strengths": ["JPClaw 的独特优势（不要客套，要真实）"]
+  "benchmark": {
+    "strengths": ["JPClaw 真实优势（不客套）"],
+    "topSuggestions": ["最重要的3-5条可执行升级建议"],
+    "vsOpenClaw": [
+      { "dimension": "对比维度", "gap": "差距描述", "suggestion": "具体建议" }
+    ],
+    "vsMarket": [
+      { "feature": "特性名", "priority": "P0|P1|P2", "suggestion": "具体建议" }
+    ]
+  },
+  "architecture": {
+    "overallGrade": "B+",
+    "dimensions": {
+      "architecture":  { "grade": "A",  "finding": "一句话核心发现（含具体定位）" },
+      "codeHealth":    { "grade": "B",  "finding": "..." },
+      "testing":       { "grade": "C+", "finding": "..." },
+      "documentation": { "grade": "B-", "finding": "..." },
+      "security":      { "grade": "A-", "finding": "..." }
+    },
+    "topFindings": ["发现1（带具体文件/模块定位）", "发现2", "发现3"]
+  }
 }`;
 
   const userMessage = [
-    `## JPClaw 现状\n${jpcClawContext}`,
+    `## JPClaw 项目文档与现状\n${jpcClawContext}`,
+    `## JPClaw 代码结构与关键文件\n${architectContext}`,
     `## OpenClaw 对比资料\n${openClawContext}`,
     `## 市场主流框架资料\n${marketContext}`,
   ].join("\n\n");
 
-  return callAnthropicJSON(systemPrompt, userMessage, { maxTokens: 4096 });
+  return callAnthropicJSON(systemPrompt, userMessage, { maxTokens: 5000 });
 }
 
-function buildBenchmarkSection(benchmark) {
-  if (!benchmark) return "";
-  if (benchmark.error) {
-    return ["", "---", "📊 **基准对比分析**", "", `❌ 分析失败：${benchmark.error}`].join("\n");
-  }
-  const lines = ["", "---", "📊 **基准对比分析**", ""];
-
-  if (benchmark.strengths?.length) {
-    lines.push("**JPClaw 优势：**");
-    for (const s of benchmark.strengths) lines.push(`✅ ${s}`);
-    lines.push("");
+/** 渲染周报深度洞察段落（基准对比 + 架构反思） */
+function buildWeeklyInsightSection(insight) {
+  if (!insight) return "";
+  if (insight.error) {
+    return ["", "---", "📊 **周报深度洞察**", "", `❌ 分析失败：${insight.error}`].join("\n");
   }
 
-  if (benchmark.topSuggestions?.length) {
-    lines.push("**TOP 升级建议：**");
-    for (const s of benchmark.topSuggestions) lines.push(`🎯 ${s}`);
-    lines.push("");
-  }
+  const lines = [];
+  const { benchmark, architecture } = insight;
 
-  if (benchmark.vsOpenClaw?.length) {
-    lines.push("**vs OpenClaw：**");
-    for (const item of benchmark.vsOpenClaw) {
-      lines.push(`• **${item.dimension}**：${item.gap} → ${item.suggestion}`);
+  // ── 基准对比 ──
+  if (benchmark) {
+    lines.push("", "---", "📊 **基准对比分析**", "");
+    if (benchmark.strengths?.length) {
+      lines.push("**JPClaw 优势：**");
+      for (const s of benchmark.strengths) lines.push(`✅ ${s}`);
+      lines.push("");
     }
-    lines.push("");
+    if (benchmark.topSuggestions?.length) {
+      lines.push("**TOP 升级建议：**");
+      for (const s of benchmark.topSuggestions) lines.push(`🎯 ${s}`);
+      lines.push("");
+    }
+    if (benchmark.vsOpenClaw?.length) {
+      lines.push("**vs OpenClaw：**");
+      for (const item of benchmark.vsOpenClaw) {
+        lines.push(`• **${item.dimension}**：${item.gap} → ${item.suggestion}`);
+      }
+      lines.push("");
+    }
+    if (benchmark.vsMarket?.length) {
+      lines.push("**vs 市场框架：**");
+      for (const item of benchmark.vsMarket) {
+        const badge = item.priority === "P0" ? "🔴" : item.priority === "P1" ? "🟡" : "🟢";
+        lines.push(`${badge} [${item.priority}] **${item.feature}**：${item.suggestion}`);
+      }
+    }
   }
 
-  if (benchmark.vsMarket?.length) {
-    lines.push("**vs 市场框架：**");
-    for (const item of benchmark.vsMarket) {
-      const badge = item.priority === "P0" ? "🔴" : item.priority === "P1" ? "🟡" : "🟢";
-      lines.push(`${badge} [${item.priority}] **${item.feature}**：${item.suggestion}`);
+  // ── 架构反思 ──
+  if (architecture) {
+    const dimensionLabels = {
+      architecture:  ["🏛", "架构一致性"],
+      codeHealth:    ["💊", "代码健康度"],
+      testing:       ["🧪", "测试覆盖策略"],
+      documentation: ["📖", "文档完整性"],
+      security:      ["🔒", "安全边界"],
+    };
+    lines.push("", "---", `🏗️ **架构师反思**（综合评级: ${architecture.overallGrade || "?"}）`, "");
+    for (const [key, [emoji, label]] of Object.entries(dimensionLabels)) {
+      const dim = architecture.dimensions?.[key];
+      if (dim) lines.push(`${emoji} ${label} [${dim.grade}]：${dim.finding}`);
+    }
+    if (architecture.topFindings?.length) {
+      lines.push("", "**🔍 核心发现：**");
+      for (const f of architecture.topFindings) lines.push(`• ${f}`);
     }
   }
 
@@ -503,7 +596,7 @@ export async function run(input) {
 
     const projects = params.projects || [process.cwd()];
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
-    const telegramChatId = params.telegramChatId;
+    const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
     const depth = params.depth || DEFAULT_DEPTH;
     const dryRun = params.dryRun ?? false;
     const includeBenchmark = params.includeBenchmark ?? false;
@@ -521,7 +614,8 @@ export async function run(input) {
           projResult.skipReason = "工作区有未提交的更改，仅执行分析模式";
         }
 
-        const analysis = await analyzeWithAI(scan, depth);
+        const recentSuggestions = loadProjectSuggestions(projectPath);
+        const analysis = await analyzeWithAI(scan, depth, recentSuggestions);
         projResult.summary = analysis.summary || null;
 
         if (analysis.skipReason && (!analysis.actions?.length) && (!analysis.issues?.length)) {
@@ -530,10 +624,19 @@ export async function run(input) {
           continue;
         }
 
-        const execResults = await executeActions(projectPath, analysis, effectiveDryRun, depth);
+        const execResults = await executeActions(projectPath, analysis, effectiveDryRun, depth, !includeBenchmark);
         projResult.actions = execResults.actions;
         projResult.issues = execResults.issues;
         projResult.prUrl = execResults.prUrl || null;
+
+        // 记录本次建议标题，供下次去重
+        const allTitles = [
+          ...(analysis.actions || []).map((a) => a.title).filter(Boolean),
+          ...(analysis.issues || []).map((i) => i.title).filter(Boolean),
+        ];
+        if (allTitles.length > 0) {
+          saveProjectSuggestions(projectPath, allTitles);
+        }
       } catch (err) {
         projResult.error = err.message;
       }
@@ -541,25 +644,29 @@ export async function run(input) {
       projectResults.push(projResult);
     }
 
-    // 基准对比（可选，耗时较长）
-    let benchmark = null;
+    // 周报深度洞察：数据收集并行，单次 AI 调用出两份分析
+    let weeklyInsight = null;
     if (includeBenchmark) {
       try {
-        const jpcClawContext = Object.entries(projectResults[0]?.scan?.contextFiles || {})
+        const primaryScan = projectResults[0]?.scan;
+        const jpcClawContext = Object.entries(primaryScan?.contextFiles || {})
           .map(([k, v]) => `### ${k}\n${v}`)
           .join("\n\n") || "JPClaw 上下文不可用";
-        const [openClawContext, marketContext] = await Promise.all([
+
+        const [openClawContext, marketContext, architectContext] = await Promise.all([
           gatherOpenClawContext(),
           gatherMarketContext(),
+          gatherArchitectContext(projects[0]),
         ]);
-        benchmark = await analyzeBenchmark(jpcClawContext, openClawContext, marketContext);
+
+        weeklyInsight = await analyzeWeeklyInsight(jpcClawContext, openClawContext, marketContext, architectContext);
       } catch (e) {
-        console.error("[proactive-coder] benchmark 分析失败:", e.message);
-        benchmark = { error: e.message };
+        console.error("[proactive-coder] 周报深度洞察失败:", e.message);
+        weeklyInsight = { error: e.message };
       }
     }
 
-    const report = buildDiscordReport(date, projectResults, dryRun, benchmark);
+    const report = buildDiscordReport(date, projectResults, dryRun, weeklyInsight);
     let discordMessageIds = [];
     try { discordMessageIds = await sendToDiscord(channelId, report); }
     catch (e) { discordMessageIds = [`error: ${e.message}`]; }
@@ -577,7 +684,7 @@ export async function run(input) {
         path: p.path, summary: p.summary, skipReason: p.skipReason,
         actions: p.actions, issues: p.issues, prUrl: p.prUrl, error: p.error,
       })),
-      benchmark: benchmark || undefined,
+      weeklyInsight: weeklyInsight || undefined,
       discordMessageIds, telegramMessageIds,
       message: dryRun
         ? "主动型程序员分析报告（DRY RUN）已推送到 Discord"
