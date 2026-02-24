@@ -1,0 +1,10 @@
+{
+  "name": "daily-reminders",
+  "version": "1.0.0",
+  "description": "每日 Apple 提醒事项播报 - 推送今日待办和逾期事项到 Discord + Telegram",
+  "emoji": "📋",
+  "requires": {
+    "bins": ["remindctl"],
+    "env": ["DISCORD_BOT1_TOKEN"]
+  }
+}
