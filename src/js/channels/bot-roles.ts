@@ -39,57 +39,89 @@ export interface BotRoleConfig {
  */
 export const DEFAULT_ROLES: Record<string, BotRoleConfig> = {
   expert: {
-    name: "正面专家",
-    description: "你是正面专家，负责直接、积极地回答用户问题",
+    name: "代码架构师",
+    description: `你是代码架构师兼高级工程师，负责直接、高质量地回答问题并给出可落地的实现方案。
+
+编程相关问题时，你的职责：
+- 给出清晰、可运行的代码实现
+- 优先考虑架构合理性：模块化、可扩展、低耦合
+- 直接指出最佳方案，不绕弯子
+- 代码质量对标世界级标准（Linux Kernel、Redis 级别）
+
+一般问题时，保持正面专家角色，直接积极地回答。`,
     participationStrategy: "always_user_question",
     observationDelay: 0,
     maxObservationMessages: 10
   },
 
   critic: {
-    name: "反面质疑者",
-    description: "你是反面质疑者，负责找出回答中的问题、漏洞、偏见或需要补充的地方",
+    name: "代码审查者",
+    description: `你是代码审查者兼测试专家，负责找出代码和方案中的问题、漏洞、风险和需要补充的地方。
+
+编程相关问题时，你的职责：
+- 审查代码质量：边界条件、错误处理、性能瓶颈、安全漏洞
+- 指出测试覆盖盲区：哪些场景没被考虑到
+- 发现隐性 bug：类型错误、竞态条件、内存泄漏、异常路径
+- 质疑过度设计或欠设计
+
+一般问题时，保持反面质疑者角色，找出回答中的漏洞和偏见。`,
     participationStrategy: "ai_decide",
-    observationDelay: 0, // 启动时由AI决定
-    decisionPrompt: `你是反面质疑者。观察上述对话，判断是否需要你参与讨论。
+    observationDelay: 6000,
+    decisionPrompt: `你是代码审查者兼测试专家。观察上述对话，判断是否需要你参与讨论。
 
 你应该参与的情况：
-- expert的回答有明显的漏洞或错误
-- 回答过于片面，缺少反面观点
-- 有重要的风险或副作用没有提及
-- 需要补充批判性思考
+- 讨论涉及代码实现、架构方案、技术选型
+- expert的回答有明显的漏洞、边界条件未处理或安全风险
+- 方案缺少错误处理、测试考量或性能分析
+- 回答过于片面，缺少反面观点或风险提示
+- 有重要的副作用、依赖风险没有提及
 
 你不应该参与的情况：
-- 回答已经很全面
-- 问题过于简单，不需要反面观点
+- 回答已经很全面，覆盖了主要风险
+- 问题过于简单，不需要深入审查
 - 对话已经有足够的批判性讨论
 
 请只回答 YES 或 NO，不要解释。`,
     maxObservationMessages: 10,
-    refreshBeforeReply: false  // 质疑者不需要发言前刷新
+    refreshBeforeReply: false
   },
 
   thinker: {
-    name: "深度思考者",
-    description: "你是深度思考者，负责提供更深入的哲学思考、多角度分析和系统性总结",
+    name: "架构反思者",
+    description: `你是架构反思者，负责从更高维度审视代码和方案，发现可改进方向和潜在错误，并用三大原则进行深刻反思。
+
+三大核心原则（每次分析都必须对照）：
+1. 泛化优先 — 当前方案是否过度硬编码？能否设计成通用机制？有没有更泛化的抽象？
+2. AI驱动 — 哪些判断和决策可以让 AI 来做，而不是写死规则？是否给了 AI 足够的上下文？
+3. 从根本解决问题 — 当前方案是在治标还是治本？本质原因是什么？有没有更根本的解法？
+
+编程相关问题时，你的职责：
+- 指出架构层面的改进方向（不只是 bug，而是设计缺陷）
+- 对照三大原则，发现哪里违背了
+- 提出「如果用更好的思路，应该怎么做」
+- 看见别人没看见的长期风险
+
+一般问题时，提供哲学层面的深度思考、跨学科分析和系统性总结。`,
     participationStrategy: "ai_decide",
-    observationDelay: 0, // 启动时由AI决定
-    decisionPrompt: `你是深度思考者。观察上述对话，判断是否需要你参与讨论。
+    observationDelay: 12000,
+    decisionPrompt: `你是架构反思者。观察上述对话，判断是否需要你参与讨论。
 
 你应该参与的情况：
-- 问题涉及深层次的哲学、伦理或价值观问题
-- 需要跨学科的综合分析
-- 对话缺少系统性的总结和升华
-- 需要从更高层次看待问题
+- 讨论涉及代码架构、系统设计、技术方案选择
+- 方案存在硬编码、过度特化或缺乏泛化的问题
+- 解决方式是在治标而非治本
+- 没有充分利用 AI 驱动的思路
+- 对话缺少系统性的反思和升华
+- 问题涉及深层次的设计哲学或长期演进方向
 
 你不应该参与的情况：
-- 问题过于简单或具体
-- 对话已经足够深入
-- 不需要哲学层面的思考
+- 问题过于简单或具体，不需要架构层面的思考
+- 对话已经充分讨论了根本原因和泛化方案
+- 当前讨论只是简单的 API 调用或配置修改
 
 请只回答 YES 或 NO，不要解释。`,
     maxObservationMessages: 15,
-    refreshBeforeReply: true  // ✅ 总结者需要最完整的对话历史
+    refreshBeforeReply: true
   }
 };
 
@@ -244,8 +276,13 @@ export async function aiDecideParticipation(
   }
 }
 
+// 【紧急修复】防止循环调用的断路器
+const aiDelayCallCount = new Map<string, { count: number; lastCall: number }>();
+const MAX_CALLS_PER_ROLE = 3; // 每个角色最多调用3次
+const RESET_INTERVAL_MS = 60000; // 1分钟后重置计数
+
 /**
- * AI决定观察延迟（去除硬编码）
+ * AI决定观察延迟（带防循环保护）
  */
 export async function aiDecideObservationDelay(
   agent: ChatEngine,
@@ -254,6 +291,41 @@ export async function aiDecideObservationDelay(
   // 如果是 always_user_question 策略，不需要观察延迟
   if (roleConfig.participationStrategy === "always_user_question") {
     return 0;
+  }
+
+  // 【紧急修复】断路器检查
+  const now = Date.now();
+  const roleKey = roleConfig.name;
+  const callInfo = aiDelayCallCount.get(roleKey);
+
+  if (callInfo) {
+    // 如果超过重置间隔，重置计数
+    if (now - callInfo.lastCall > RESET_INTERVAL_MS) {
+      aiDelayCallCount.set(roleKey, { count: 1, lastCall: now });
+    } else {
+      // 增加计数
+      callInfo.count++;
+      callInfo.lastCall = now;
+
+      // 如果超过最大调用次数，直接返回默认值
+      if (callInfo.count > MAX_CALLS_PER_ROLE) {
+        log("error", "bot_roles.ai_delay.circuit_breaker_triggered", {
+          role: roleConfig.name,
+          callCount: callInfo.count,
+          message: "检测到循环调用，返回默认延迟"
+        });
+
+        // 返回角色特定的默认延迟
+        const defaultDelays: Record<string, number> = {
+          "反面质疑者": 6000,
+          "深度思考者": 12000
+        };
+        return defaultDelays[roleConfig.name] || 5000;
+      }
+    }
+  } else {
+    // 首次调用
+    aiDelayCallCount.set(roleKey, { count: 1, lastCall: now });
   }
 
   try {
