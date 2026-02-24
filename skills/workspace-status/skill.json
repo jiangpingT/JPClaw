@@ -1,0 +1,9 @@
+{
+  "name": "workspace-status",
+  "version": "1.0.0",
+  "description": "工作台状态查询 - 查看项目当前改动、最近提交、开放 PR",
+  "emoji": "📊",
+  "requires": {
+    "env": ["DISCORD_BOT1_TOKEN"]
+  }
+}

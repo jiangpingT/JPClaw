@@ -1,0 +1,9 @@
+{
+  "name": "notify",
+  "version": "1.0.0",
+  "description": "向 Discord + Telegram 推送通知消息",
+  "emoji": "🔔",
+  "requires": {
+    "env": ["DISCORD_BOT1_TOKEN", "TELEGRAM_BOT1_TOKEN"]
+  }
+}
