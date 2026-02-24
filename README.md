@@ -55,15 +55,71 @@ cp .env.example .env   # 填写必要的 API key
 npm run restart        # 启动服务（端口 18790）
 ```
 
-### 服务管理
+---
+
+## 服务管理（最佳实践）
+
+### 日常操作
 
 ```bash
-npm run restart   # 重启服务
-npm run status    # 查看状态
-npm run logs      # 查看日志
+npm run restart   # 重启服务（最常用，改完代码/skill 后执行）
+npm run status    # 查看运行状态 + 端口占用
+npm run logs      # 实时查看日志
 npm run stop      # 停止服务
-npm run dev -- doctor  # 本地诊断
 ```
+
+### 标准工作流
+
+**改完代码或新增 skill 后：**
+```bash
+npm run restart
+# 等 3 秒后验证：
+curl http://localhost:18790/health
+```
+
+**拉取远端更新后：**
+```bash
+git pull
+npm install       # 有新依赖时执行，否则可跳过
+npm run restart
+```
+
+**手动测试某个 skill：**
+```bash
+curl -s -X POST http://localhost:18790/skills/run \
+  -H "Content-Type: application/json" \
+  -d '{"name":"notify","input":"{\"message\":\"测试\"}"}'
+```
+
+### 服务不响应时的排查步骤
+
+```bash
+# 1. 先看状态
+npm run status
+
+# 2. 看日志找报错
+npm run logs
+
+# 3. 强制重启
+npm run restart
+
+# 4. 确认端口正常
+curl http://localhost:18790/health
+```
+
+### 开机自启（已配置 launchd）
+
+服务通过 macOS launchd 管理，**开机自动启动，崩溃自动重启**，无需手动干预。
+
+```bash
+# 查看 launchd 服务状态
+launchctl print system/com.jpclaw.gateway
+
+# 仅当 launchd 配置损坏时才需要手动加载：
+# sudo launchctl load /Library/LaunchDaemons/com.jpclaw.gateway.plist
+```
+
+> **重要**：日常操作永远用 `npm run restart`，禁止手动 `node` 或 `pkill`，会绕过 launchd 导致服务状态混乱。
 
 ---
 
@@ -112,7 +168,10 @@ npm run dev -- doctor  # 本地诊断
 `insight-summary` `data-analysis` `social-stats` `model-usage` `survey-batch` `oracle`
 
 **主动技能（定时触发）**
-`morning-brief` `afternoon-report` `community-radar` `proactive-coder`
+`morning-brief` `afternoon-report` `community-radar` `proactive-coder` `daily-reminders` `stock-watch` `proactive-pm`
+
+**通知 & 状态**
+`notify` `workspace-status`
 
 **文档 & 内容**
 `doc-generation` `design-doc-mermaid` `slide-outline` `nano-pdf` `entity-intro` `skill-creator`
