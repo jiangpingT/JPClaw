@@ -227,7 +227,7 @@ git worktree remove /tmp/issue-99
 4. **用 process:log 监控** — 只看进度，不要干预执行
 5. **允许并行** — 可以同时跑多个 Claude Code 进程处理批量任务
 6. **禁止在 ~/clawd/ 里启动 agent** — 会读到私人文档，产生奇怪行为
-7. **禁止在 ~/Projects/openclaw/ 里切换分支** — 那是线上运行的 OpenClaw 实例
+7. **workdir 必须是用户指定的项目路径** — 默认项目在 `/Users/mlamp/Workspace/JPClaw` 或 `/Users/mlamp/Workspace/JPRobot`，禁止自行猜测或使用其他路径
 
 ---
 
