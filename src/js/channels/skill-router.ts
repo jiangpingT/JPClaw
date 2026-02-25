@@ -53,6 +53,49 @@ export async function maybeRunSkillFirstV2(
     requiredSlots: [] // 后续可从 manifest 读取
   }));
 
+  // @skill-name 快捷触发（绕过 AI 意图识别，100% 确定性路由）
+  // 例：@coding-agent 帮我修 stock-watch 的 bug
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("@")) {
+    const spaceIdx = trimmed.indexOf(" ");
+    const atName = spaceIdx === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIdx);
+    const matched = skills.find(s => s.name.toLowerCase() === atName.toLowerCase());
+    if (matched) {
+      const skillInput = spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1).trim();
+      log("info", "skill_router.at_trigger", {
+        traceId: context.traceId,
+        channelId: context.channelId,
+        userId: context.userId,
+        skillName: matched.name,
+        inputPreview: skillInput.slice(0, 100)
+      });
+      try {
+        const output = await runSkill(matched.name, skillInput || raw);
+        if (agent.recordExternalExchange && output) {
+          agent.recordExternalExchange(raw, output, context);
+        }
+        const result = extractReadableOutput(String(output || "").trim());
+        const finalResult = result ? `[skill:${matched.name}]\n${result}` : "";
+        return createSuccess(finalResult, {
+          source: "computed",
+          skillName: matched.name,
+          confidence: 1.0
+        });
+      } catch (error) {
+        log("warn", "skill_router.at_trigger_failed", {
+          traceId: context.traceId,
+          skillName: matched.name,
+          error: String(error)
+        });
+        return createFailureFromCode(
+          ErrorCode.SKILL_EXECUTION_FAILED,
+          String(error),
+          { traceId: context.traceId }
+        );
+      }
+    }
+  }
+
   // 阶段3：使用两段式意图系统（替代硬编码）
   const intentSystem = new IntentSystem();
 
