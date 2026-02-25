@@ -10,11 +10,16 @@
  *   log    — 查看完整输出
  *   list   — 列出所有会话
  *   kill   — 终止指定会话
+ *
+ * 续接语法（手机友好）：
+ *   @coding-agent --continue 按刚才的 plan 实现
+ *   @coding-agent --resume ca_xxx 测试没过，继续修
  */
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import {
   sendToDiscord, sendToTelegram, ensureDir, BRAIN_DIR,
 } from "../_shared/proactive-utils.js";
@@ -74,10 +79,51 @@ function inferWorkdir(task) {
   return DEFAULT_WORKDIR;
 }
 
+/**
+ * 扫描 ~/.claude/projects/ 找最近创建的 claude session UUID
+ * claude 在启动后会在此目录创建 <uuid>.jsonl 文件
+ * @param {number} startedAfterMs - 只查找此时间戳之后创建的文件
+ * @returns {string|null} session UUID 或 null
+ */
+function findClaudeSessionId(startedAfterMs) {
+  try {
+    const claudeDir = path.join(os.homedir(), ".claude", "projects");
+    if (!fs.existsSync(claudeDir)) return null;
+
+    let newest = null;
+    let newestTime = 0;
+
+    for (const proj of fs.readdirSync(claudeDir)) {
+      const projDir = path.join(claudeDir, proj);
+      try {
+        if (!fs.statSync(projDir).isDirectory()) continue;
+        for (const f of fs.readdirSync(projDir)) {
+          if (!f.endsWith(".jsonl")) continue;
+          const fp = path.join(projDir, f);
+          const stat = fs.statSync(fp);
+          // birthtimeMs 更精确；部分 fs 不支持时回退 mtimeMs
+          const created = stat.birthtimeMs || stat.mtimeMs;
+          if (created >= startedAfterMs && created > newestTime) {
+            newestTime = created;
+            newest = f.replace(".jsonl", "");
+          }
+        }
+      } catch {}
+    }
+    return newest;
+  } catch {
+    return null;
+  }
+}
+
 // ─── 核心：启动 claude -p 执行任务 ───────────────────────────────────────────
 
-async function startSession({ task, workdir, tool, notifyOnDone, channelId, telegramChatId }) {
+async function startSession({
+  task, workdir, tool, notifyOnDone, channelId, telegramChatId,
+  resumeClaudeSessionId,   // claude 内部 UUID，用于 --resume
+}) {
   const id = genId();
+  const startedAtMs = Date.now();
 
   const session = {
     id,
@@ -85,25 +131,34 @@ async function startSession({ task, workdir, tool, notifyOnDone, channelId, tele
     workdir,
     tool,
     status: "running",
-    startedAt: new Date().toISOString(),
+    startedAt: new Date(startedAtMs).toISOString(),
     endedAt: null,
     exitCode: null,
-    lines: [],   // 最近 500 行输出
+    lines: [],          // 最近 500 行输出
+    claudeSessionId: null,  // claude 内部 UUID（异步填充）
   };
   sessions.set(id, session);
   persistSessions();
 
   // 构建命令
   const bin = tool === "claude" ? CLAUDE_BIN : (tool || CLAUDE_BIN);
-  const args = tool === "codex"
-    ? ["exec", "--full-auto", task]
-    : ["-p", task, "--dangerously-skip-permissions", "--no-session-persistence"];
+  let args;
+  if (tool === "codex") {
+    args = ["exec", "--full-auto", task];
+  } else {
+    args = [];
+    if (resumeClaudeSessionId) {
+      // 续接上一个 claude 对话，保留完整上下文
+      args.push("--resume", resumeClaudeSessionId);
+    }
+    args.push("-p", task, "--dangerously-skip-permissions");
+    // 注意：已去掉 --no-session-persistence，以支持 --resume
+  }
 
   const proc = spawn(bin, args, {
     cwd: workdir,
     env: {
       ...process.env,
-      // 告知 claude 在 CI/非交互环境运行
       CI: "true",
       NO_COLOR: "1",
       TERM: "dumb",
@@ -111,15 +166,19 @@ async function startSession({ task, workdir, tool, notifyOnDone, channelId, tele
     stdio: ["ignore", "pipe", "pipe"],
   });
 
+  // 续接模式：直接继承父 session 的 claude UUID（--resume 不创建新文件）
+  if (resumeClaudeSessionId) {
+    session.claudeSessionId = resumeClaudeSessionId;
+    persistSessions();
+  }
+
   // 存 proc 引用（不持久化）
   session.proc = proc;
 
   const appendLine = (text) => {
     const clean = text.replace(ANSI_RE, "");
-    // 按换行拆分，逐行存储
     const newLines = clean.split("\n");
     session.lines.push(...newLines);
-    // 最多保留 500 行
     if (session.lines.length > 500) {
       session.lines.splice(0, session.lines.length - 500);
     }
@@ -135,28 +194,50 @@ async function startSession({ task, workdir, tool, notifyOnDone, channelId, tele
     persistSessions();
   });
 
+  // 3 秒后捕获 claude session ID（claude 启动时会立即创建 .jsonl 文件）
+  setTimeout(() => {
+    if (!session.claudeSessionId) {
+      const sid = findClaudeSessionId(startedAtMs - 500);
+      if (sid) {
+        session.claudeSessionId = sid;
+        persistSessions();
+      }
+    }
+  }, 3000);
+
   proc.on("exit", async (code) => {
     session.status = code === 0 ? "done" : "failed";
     session.exitCode = code;
     session.endedAt = new Date().toISOString();
+
+    // 任务结束时再补捉一次（防止 3 秒内 claude 还未写文件）
+    if (!session.claudeSessionId) {
+      const sid = findClaudeSessionId(startedAtMs - 500);
+      if (sid) session.claudeSessionId = sid;
+    }
+
     persistSessions();
 
     if (!notifyOnDone) return;
 
-    // 取最后 30 行作为摘要
     const summary = session.lines.slice(-30).join("\n").trim().slice(0, 1200);
     const emoji = code === 0 ? "✅" : "❌";
     const shortTask = task.length > 120 ? task.slice(0, 117) + "…" : task;
+    // 在通知里带上 sessionId，方便手机直接复制续接
+    const resumeTip = session.claudeSessionId
+      ? `\n💡 续接：\`@coding-agent --resume ${id} 你的下一步\``
+      : "";
     const msg = [
       `${emoji} **Coding Agent ${code === 0 ? "完成" : "失败"}**`,
       `📁 \`${path.basename(workdir)}\``,
       `🎯 ${shortTask}`,
+      `🆔 \`${id}\`${resumeTip}`,
       summary ? `\n\`\`\`\n${summary}\n\`\`\`` : "",
     ].join("\n");
 
     await Promise.allSettled([
-      channelId   ? sendToDiscord(channelId, msg)       : Promise.resolve(),
-      telegramChatId ? sendToTelegram(telegramChatId, msg) : Promise.resolve(),
+      channelId      ? sendToDiscord(channelId, msg)        : Promise.resolve(),
+      telegramChatId ? sendToTelegram(telegramChatId, msg)  : Promise.resolve(),
     ]);
   });
 
@@ -167,16 +248,25 @@ async function startSession({ task, workdir, tool, notifyOnDone, channelId, tele
 
 export async function run(input) {
   try {
-    // 兼容两种调用方式：
-    // 1. JSON：{"action":"start","task":"...","workdir":"..."}
-    // 2. 自然语言字符串：直接作为 task（由 skill_router 传入用户消息）
     let params = {};
     if (typeof input === "string") {
-      try {
-        params = JSON.parse(input);
-      } catch {
-        // 非 JSON → 把整个字符串当作 task
-        params = { action: "start", task: input };
+      const s = input.trim();
+
+      // 手机友好的续接语法（无需 JSON）：
+      //   --continue 下一步任务描述
+      //   --resume ca_xxx 下一步任务描述
+      if (s.startsWith("--continue ")) {
+        params = { action: "start", task: s.slice("--continue ".length).trim(), continue: true };
+      } else if (/^--resume\s+\S+\s+/s.test(s)) {
+        const m = s.match(/^--resume\s+(\S+)\s+([\s\S]+)$/);
+        if (m) params = { action: "start", task: m[2].trim(), resumeSessionId: m[1] };
+      } else {
+        try {
+          params = JSON.parse(s);
+        } catch {
+          // 纯自然语言 → 当作新任务
+          params = { action: "start", task: s };
+        }
       }
     } else {
       params = input || {};
@@ -202,13 +292,45 @@ export async function run(input) {
       if (!fs.existsSync(dir)) {
         return JSON.stringify({ ok: false, error: `workdir 不存在: ${dir}` });
       }
-      const id = await startSession({ task, workdir: dir, tool, notifyOnDone, channelId, telegramChatId });
+
+      // 解析续接目标：找到上一个 session 的 claude UUID
+      let resumeClaudeSessionId;
+
+      if (params.resumeSessionId) {
+        // 精确续接：指定 ca_xxx session
+        const prev = sessions.get(params.resumeSessionId);
+        if (!prev) {
+          return JSON.stringify({ ok: false, error: `找不到 session: ${params.resumeSessionId}` });
+        }
+        if (!prev.claudeSessionId) {
+          return JSON.stringify({ ok: false, error: `session ${params.resumeSessionId} 暂无 claude session ID（可能任务还在运行中）` });
+        }
+        resumeClaudeSessionId = prev.claudeSessionId;
+      } else if (params.continue) {
+        // 模糊续接：找同一 workdir 下最近完成的 session
+        const prev = Array.from(sessions.values())
+          .filter(s => s.workdir === dir && s.claudeSessionId && s.status !== "running")
+          .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0];
+        if (!prev) {
+          return JSON.stringify({ ok: false, error: `在 ${path.basename(dir)} 找不到可续接的 session，请先启动一个任务` });
+        }
+        resumeClaudeSessionId = prev.claudeSessionId;
+      }
+
+      const id = await startSession({
+        task, workdir: dir, tool, notifyOnDone, channelId, telegramChatId,
+        resumeClaudeSessionId,
+      });
+
       return JSON.stringify({
         ok: true,
         sessionId: id,
         status: "started",
         workdir: dir,
-        message: `✅ 已在 ${path.basename(dir)} 启动 ${tool}，完成后会通知你（sessionId: ${id}）`,
+        resumed: !!resumeClaudeSessionId,
+        message: resumeClaudeSessionId
+          ? `✅ 已在 ${path.basename(dir)} 继续上一个 claude 会话（sessionId: ${id}）`
+          : `✅ 已在 ${path.basename(dir)} 启动 ${tool}，完成后会通知你（sessionId: ${id}）`,
       });
     }
 
@@ -220,6 +342,7 @@ export async function run(input) {
       return JSON.stringify({
         ok: true, sessionId, status: s.status,
         startedAt: s.startedAt, endedAt: s.endedAt,
+        claudeSessionId: s.claudeSessionId,
         recentOutput: recent.slice(-800),
       });
     }
@@ -230,6 +353,7 @@ export async function run(input) {
       if (!s) return JSON.stringify({ ok: false, error: `session ${sessionId} 不存在` });
       return JSON.stringify({
         ok: true, sessionId, status: s.status,
+        claudeSessionId: s.claudeSessionId,
         output: s.lines.join("\n").slice(-5000),
       });
     }
@@ -243,6 +367,7 @@ export async function run(input) {
         workdir: path.basename(s.workdir || ""),
         startedAt: s.startedAt,
         endedAt: s.endedAt,
+        canResume: !!s.claudeSessionId,
       }));
       return JSON.stringify({ ok: true, sessions: list });
     }
