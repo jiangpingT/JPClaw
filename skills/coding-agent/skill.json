@@ -1,0 +1,9 @@
+{
+  "name": "coding-agent",
+  "version": "2.0.0",
+  "description": "在后台启动 claude CLI 执行编程任务，完成后推送通知。适用于修bug、写代码、代码审查等场景。",
+  "emoji": "🧩",
+  "requires": {
+    "anyBins": ["claude", "codex", "opencode"]
+  }
+}
