@@ -25,6 +25,56 @@ export interface TelegramMultiBotStatus {
   }>;
 }
 
+const RECONNECT_INITIAL_DELAY_MS = 5000;
+const RECONNECT_MAX_DELAY_MS = 300000; // 5 分钟
+
+/**
+ * 失败后按指数退避调度重连
+ */
+function scheduleReconnect(
+  config: TelegramBotConfig,
+  agent: ChatEngine,
+  conversationStore: ConversationStore,
+  clients: Array<{ bot: TelegramBot; handler: TelegramBotHandler }>,
+  isShuttingDown: { value: boolean },
+  delay: number,
+  attempt: number
+): void {
+  const timer = setTimeout(async () => {
+    if (isShuttingDown.value) return;
+
+    log("info", "telegram.multi_bot.bot_reconnecting", {
+      name: config.name,
+      agentId: config.agentId,
+      attempt
+    });
+
+    const result = await startSingleBot(config, agent, conversationStore);
+
+    if (result) {
+      clients.push(result);
+      log("info", "telegram.multi_bot.bot_reconnected", {
+        name: config.name,
+        agentId: config.agentId,
+        attempt
+      });
+    } else {
+      if (isShuttingDown.value) return;
+      const nextDelay = Math.min(delay * 2, RECONNECT_MAX_DELAY_MS);
+      log("warn", "telegram.multi_bot.bot_reconnect_retry", {
+        name: config.name,
+        agentId: config.agentId,
+        attempt,
+        nextRetryMs: nextDelay,
+        nextRetrySec: Math.round(nextDelay / 1000)
+      });
+      scheduleReconnect(config, agent, conversationStore, clients, isShuttingDown, nextDelay, attempt + 1);
+    }
+  }, delay);
+
+  timer.unref();
+}
+
 /**
  * 启动单个 Telegram Bot
  */
@@ -157,6 +207,7 @@ export async function startMultipleTelegramBots(
 
   const bots: TelegramMultiBotStatus["bots"] = [];
   const clients: Array<{ bot: TelegramBot; handler: TelegramBotHandler }> = [];
+  const isShuttingDown = { value: false };
 
   // 创建共享 ConversationStore（所有 bot 共用）
   const conversationStore = new ConversationStore();
@@ -180,6 +231,7 @@ export async function startMultipleTelegramBots(
         connected: false,
         error: "Failed to start"
       });
+      scheduleReconnect(config, agent, conversationStore, clients, isShuttingDown, RECONNECT_INITIAL_DELAY_MS, 1);
     }
   }
 
@@ -191,6 +243,7 @@ export async function startMultipleTelegramBots(
 
   // 优雅关闭处理
   process.on("SIGINT", async () => {
+    isShuttingDown.value = true;
     log("info", "telegram.multi_bot.shutting_down");
 
     for (const { bot, handler } of clients) {
