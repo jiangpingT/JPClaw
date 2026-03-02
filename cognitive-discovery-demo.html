@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认知增强型知识发现流程演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section h2::before {
+            content: "▶";
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        .task {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        
+        .step {
+            background: #f3e5f5;
+            border-left-color: #9c27b0;
+        }
+        
+        .evidence {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+        
+        .graph {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+        
+        .evaluation {
+            background: #fce4ec;
+            border-left-color: #e91e63;
+        }
+        
+        .next-steps {
+            background: #e0f2f1;
+            border-left-color: #009688;
+        }
+        
+        .item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .item strong {
+            color: #333;
+        }
+        
+        .score-bar {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+        }
+        
+        .score-label {
+            min-width: 80px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .score-value {
+            flex: 1;
+            height: 24px;
+            background: #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 0 10px;
+            position: relative;
+        }
+        
+        .score-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            transition: width 0.5s ease;
+        }
+        
+        .graph-node {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+        
+        .graph-relation {
+            display: inline-block;
+            margin: 0 5px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .link {
+            color: #667eea;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        
+        .link:hover {
+            text-decoration: underline;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        
+        ul {
+            margin-left: 20px;
+        }
+        
+        li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 认知增强型知识发现流程</h1>
+            <p>Cognitive-Enhanced Knowledge Discovery Workflow</p>
+        </header>
+        
+        <div class="content">
+            <!-- 任务 -->
+            <div class="section task">
+                <h2>任务</h2>
+                <div class="item">
+                    演示：认知增强型知识发现流程 
+                    <a href="https://docs.openclaw.ai/tools/skills" class="link" target="_blank">
+                        https://docs.openclaw.ai/tools/skills
+                    </a>
+                </div>
+            </div>
+            
+            <!-- 步骤1：数据获取 -->
+            <div class="section step">
+                <h2>步骤 1 - 数据获取（行为交互）</h2>
+                <div class="item">
+                    <strong>来源：</strong>
+                    <a href="https://docs.openclaw.ai/tools/skills" class="link" target="_blank">
+                        https://docs.openclaw.ai/tools/skills
+                    </a>
+                </div>
+                <div class="item">
+                    <strong>摘要：</strong>
+                    Skills - OpenClaw Skip to main content OpenClaw home page English Search... ⌘ K GitHub Releases Search... Navigation Skills Skills Get started Install Channels Agents Tools Models
+                </div>
+            </div>
+            
+            <!-- 步骤2：认知理解 -->
+            <div class="section step">
+                <h2>步骤 2 - 认知理解（逻辑认知）</h2>
+                <div class="item">
+                    <strong>关键实体/概念：</strong>
+                    <span class="badge">quot</span>
+                    <span class="badge">the</span>
+                    <span class="badge">skills</span>
+                    <span class="badge">and</span>
+                    <span class="badge">skill</span>
+                </div>
+                <div class="item">
+                    <strong>推理链（多跳）：</strong>
+                    <ul>
+                        <li>假设：skill 是当前任务的关键候选</li>
+                        <li>证据链：来源中高频出现且覆盖多来源</li>
+                        <li>验证：skill 在 1 个来源中出现，可信度为中-高</li>
+                        <li>结论：skill 进入优先评估集合</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- 证据定位 -->
+            <div class="section evidence">
+                <h2>证据定位</h2>
+                <div class="item">📍 <strong>skill</strong> 来自 <a href="https://docs.openclaw.ai/tools/skills" class="link" target="_blank">https://docs.openclaw.ai/tools/skills</a></div>
+                <div class="item">📍 <strong>the</strong> 来自 <a href="https://docs.openclaw.ai/tools/skills" class="link" target="_blank">https://docs.openclaw.ai/tools/skills</a></div>
+                <div class="item">📍 <strong>quot</strong> 来自 <a href="https://docs.openclaw.ai/tools/skills" class="link" target="_blank">https://docs.openclaw.ai/tools/skills</a></div>
+            </div>
+            
+            <!-- 知识图谱 -->
+            <div class="section graph">
+                <h2>结构化片段（简化知识图谱）</h2>
+                <div class="item" style="text-align: center; padding: 20px;">
+                    <span class="graph-node">quot</span>
+                    <span class="graph-relation">--相关--></span>
+                    <span class="graph-node">the</span>
+                </div>
+            </div>
+            
+            <!-- 价值评价 -->
+            <div class="section evaluation">
+                <h2>步骤 3 - 价值评价</h2>
+                <div class="item">
+                    <strong>评价维度：</strong>相关性 / 可信度 / 价值
+                </div>
+                
+                <div class="score-bar">
+                    <div class="score-label">skill</div>
+                    <div class="score-value">
+                        <div class="score-fill" style="width: 85%;">170</div>
+                    </div>
+                    <span style="font-size: 12px; color: #666;">rel=101 cred=1 val=53</span>
+                </div>
+                
+                <div class="score-bar">
+                    <div class="score-label">the</div>
+                    <div class="score-value">
+                        <div class="score-fill" style="width: 71%;">142</div>
+                    </div>
+                    <span style="font-size: 12px; color: #666;">rel=84 cred=1 val=44</span>
+                </div>
+                
+                <div class="score-bar">
+                    <div class="score-label">quot</div>
+                    <div class="score-value">
+                        <div class="score-fill" style="width: 67%;">135</div>
+                    </div>
+                    <span style="font-size: 12px; color: #666;">rel=79 cred=1 val=42</span>
+                </div>
+            </div>
+            
+            <!-- 下一步 -->
+            <div class="section next-steps">
+                <h2>总结与下一步</h2>
+                <div class="item">✅ <strong>下一步 1：</strong>补充高质量来源（网页/报告/数据库）</div>
+                <div class="item">✅ <strong>下一步 2：</strong>细化领域本体或评价维度</div>
+                <div class="item">✅ <strong>下一步 3：</strong>对Top结果执行更深入验证或实验</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

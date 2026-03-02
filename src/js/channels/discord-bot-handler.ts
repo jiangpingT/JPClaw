@@ -764,7 +764,7 @@ export class DiscordBotHandler {
 
     // 使用最新的历史构造提示（可能经过了两次刷新）
     const finalFormattedHistory = formatConversationHistory(history);
-    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n你是【${this.roleConfig.name}】，${this.roleConfig.description}。请从你的角色出发，对上述对话进行回应。`;
+    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n请以【${this.roleConfig.name}】的视角，对上述对话进行回应。`;
 
     try {
       const response = await this.agent.reply(fullPrompt, {

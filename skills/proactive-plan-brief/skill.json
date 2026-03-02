@@ -1,0 +1,10 @@
+{
+  "name": "proactive-plan-brief",
+  "version": "1.0.0",
+  "description": "Plan计划日报 - 每日早晨读取 Apple Notes「Plan计划」中昨日计划并播报",
+  "emoji": "📋",
+  "requires": {
+    "bins": ["memo"],
+    "env": ["ANTHROPIC_AUTH_TOKEN", "DISCORD_BOT1_TOKEN"]
+  }
+}

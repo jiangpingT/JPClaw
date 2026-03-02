@@ -37,6 +37,9 @@ screenshot*.js
 screenshot*.py
 screenshot*.sh
 
+# 崩溃日志
+crash.log
+
 # Playwright MCP 日志
 .playwright-mcp/
 

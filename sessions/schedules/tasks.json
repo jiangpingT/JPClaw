@@ -59,8 +59,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-25T01:00:00.000Z",
-    "lastRunAt": "2026-02-24T01:03:23.463Z",
+    "nextRunAt": "2026-03-03T01:00:00.000Z",
+    "lastRunAt": "2026-03-02T01:00:07.145Z",
     "status": "active"
   },
   {
@@ -71,15 +71,16 @@
     "payload": {
       "projects": [
         "/Users/mlamp/Workspace/JPClaw",
-        "/Users/mlamp/Workspace/JPRobot"
+        "/Users/mlamp/Workspace/JPRobot",
+        "/Users/mlamp/Workspace/JPFusion"
       ],
       "channelId": "1469204772379693222",
       "depth": "standard",
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-24T13:00:00.000Z",
-    "lastRunAt": "2026-02-23T13:00:49.623Z",
+    "nextRunAt": "2026-03-02T13:00:00.000Z",
+    "lastRunAt": "2026-03-01T13:00:10.285Z",
     "status": "active"
   },
   {
@@ -100,8 +101,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-25T06:00:00.000Z",
-    "lastRunAt": "2026-02-24T06:00:46.524Z",
+    "nextRunAt": "2026-03-03T06:00:00.000Z",
+    "lastRunAt": "2026-03-02T06:00:25.637Z",
     "status": "active"
   },
   {
@@ -129,8 +130,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-19T00:00:00.000Z",
-    "nextRunAt": "2026-02-25T08:00:00.000Z",
-    "lastRunAt": "2026-02-24T08:00:31.232Z",
+    "nextRunAt": "2026-03-02T08:00:00.000Z",
+    "lastRunAt": "2026-03-01T08:00:34.172Z",
     "status": "active"
   },
   {
@@ -141,7 +142,8 @@
     "payload": {
       "projects": [
         "/Users/mlamp/Workspace/JPClaw",
-        "/Users/mlamp/Workspace/JPRobot"
+        "/Users/mlamp/Workspace/JPRobot",
+        "/Users/mlamp/Workspace/JPFusion"
       ],
       "channelId": "1469204772379693222",
       "telegramChatId": "-1003855994917",
@@ -149,8 +151,8 @@
       "includeBenchmark": true
     },
     "createdAt": "2026-02-20T00:00:00.000Z",
-    "nextRunAt": "2026-03-02T02:00:00.000Z",
-    "lastRunAt": "2026-02-23T02:00:29.667Z",
+    "nextRunAt": "2026-03-09T02:00:00.000Z",
+    "lastRunAt": "2026-03-02T02:00:07.265Z",
     "status": "active"
   },
   {
@@ -163,8 +165,8 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-21T00:00:00.000Z",
-    "nextRunAt": "2026-02-25T09:00:00.000Z",
-    "lastRunAt": "2026-02-24T09:00:57.002Z",
+    "nextRunAt": "2026-03-02T09:00:00.000Z",
+    "lastRunAt": "2026-03-01T09:08:02.792Z",
     "status": "active"
   },
   {
@@ -177,8 +179,24 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-24T00:00:00.000Z",
-    "nextRunAt": "2026-02-25T01:30:00.000Z",
-    "status": "active"
+    "nextRunAt": "2026-03-02T17:30:00.000Z",
+    "status": "active",
+    "lastRunAt": "2026-03-01T17:30:25.153Z"
+  },
+  {
+    "id": "plan_brief_daily",
+    "name": "备忘录最新动态播报 (每日 08:45)",
+    "schedule": "FREQ=DAILY;BYHOUR=8;BYMINUTE=45",
+    "action": "skill:proactive-plan-brief",
+    "payload": {
+      "topN": 5,
+      "channelId": "1469204772379693222",
+      "telegramChatId": "-1003855994917"
+    },
+    "createdAt": "2026-02-26T00:00:00.000Z",
+    "nextRunAt": "2026-03-03T00:45:00.000Z",
+    "status": "active",
+    "lastRunAt": "2026-03-02T00:45:25.800Z"
   },
   {
     "id": "daily_reminders_morning",
@@ -190,7 +208,29 @@
       "telegramChatId": "-1003855994917"
     },
     "createdAt": "2026-02-24T00:00:00.000Z",
-    "nextRunAt": "2026-02-25T00:30:00.000Z",
-    "status": "active"
+    "nextRunAt": "2026-03-03T00:30:00.000Z",
+    "status": "active",
+    "lastRunAt": "2026-03-02T00:30:25.816Z"
+  },
+  {
+    "id": "github_sync_daily",
+    "name": "GitHub 代码同步 (每日 23:00)",
+    "schedule": "FREQ=DAILY;BYHOUR=23;BYMINUTE=0",
+    "action": "skill:github-sync",
+    "payload": {
+      "repos": [
+        {
+          "name": "OpenClaw",
+          "repo": "https://github.com/openclaw/openclaw",
+          "localPath": "/Users/mlamp/Workspace/OpenClaw"
+        }
+      ],
+      "channelId": "1469204772379693222",
+      "telegramChatId": "-1003855994917"
+    },
+    "createdAt": "2026-02-25T00:00:00.000Z",
+    "nextRunAt": "2026-03-02T15:00:00.000Z",
+    "status": "active",
+    "lastRunAt": "2026-03-01T15:00:49.231Z"
   }
 ]

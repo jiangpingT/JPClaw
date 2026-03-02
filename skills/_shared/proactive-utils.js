@@ -6,6 +6,7 @@
  */
 
 import { exec, execFile } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { HttpsProxyAgent } from "https-proxy-agent";
@@ -352,6 +353,57 @@ export async function sendToTelegram(chatId, content) {
   }
 
   return messageIds;
+}
+
+// ─── 建议去重记忆 ─────────────────────────────────────────────────────────────
+
+const PROACTIVE_MEMORY_DIR = path.resolve(process.cwd(), "sessions", "brain", "proactive-memory");
+
+/** 将项目路径编码为安全文件名（SHA-256，无碰撞风险） */
+function projectSlug(projectPath) {
+  return crypto.createHash("sha256").update(projectPath).digest("hex").slice(0, 40);
+}
+
+/**
+ * 读取项目过去 30 天内已提过的建议标题列表
+ * @returns {string[]}
+ */
+export function loadProjectSuggestions(projectPath) {
+  const file = path.join(PROACTIVE_MEMORY_DIR, `${projectSlug(projectPath)}.json`);
+  try {
+    if (!fs.existsSync(file)) return [];
+    const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return (data.suggestions || []).filter((s) => s.date >= cutoff).map((s) => s.title);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 将新建议标题持久化（30 天滚动窗口，去重）
+ * @param {string} projectPath
+ * @param {string[]} newTitles
+ */
+export function saveProjectSuggestions(projectPath, newTitles) {
+  if (!newTitles || newTitles.length === 0) return;
+  const file = path.join(PROACTIVE_MEMORY_DIR, `${projectSlug(projectPath)}.json`);
+  fs.mkdirSync(PROACTIVE_MEMORY_DIR, { recursive: true });
+  let suggestions = [];
+  try {
+    if (fs.existsSync(file)) {
+      const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      suggestions = (data.suggestions || []).filter((s) => s.date >= cutoff);
+    }
+  } catch {}
+  const today = new Date().toISOString().slice(0, 10);
+  for (const title of newTitles) {
+    if (!suggestions.some((s) => s.title === title)) {
+      suggestions.push({ title, date: today });
+    }
+  }
+  fs.writeFileSync(file, JSON.stringify({ projectPath, suggestions }, null, 2));
 }
 
 // ─── RSS 解析 ────────────────────────────────────────────────────────────────

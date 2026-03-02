@@ -1,0 +1,9 @@
+{
+  "name": "proactive-pm",
+  "version": "1.0.0",
+  "description": "主动产品经理 - 每日产品机遇扫描（AI/Robot/IM）",
+  "emoji": "🎯",
+  "requires": {
+    "env": ["ANTHROPIC_AUTH_TOKEN", "DISCORD_BOT1_TOKEN"]
+  }
+}

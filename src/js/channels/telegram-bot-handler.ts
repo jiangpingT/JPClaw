@@ -913,7 +913,7 @@ export class TelegramBotHandler {
 
     // 构造提示词
     const finalFormattedHistory = formatConversationHistory(history);
-    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n你是【${this.roleConfig.name}】，${this.roleConfig.description}。请从你的角色出发，对上述对话进行回应。`;
+    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n请以【${this.roleConfig.name}】的视角，对上述对话进行回应。`;
 
     try {
       const response = await this.agent.reply(fullPrompt, {

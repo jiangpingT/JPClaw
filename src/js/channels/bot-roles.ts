@@ -389,7 +389,7 @@ export async function aiDecideObservationDelay(
   }
 
   try {
-    const prompt = `你是【${roleConfig.name}】，${roleConfig.description}
+    const prompt = `你是【${roleConfig.name}】。
 
 为了做出准确的参与判断，你需要观察对话多长时间？
 

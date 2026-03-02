@@ -1,0 +1,9 @@
+{
+  "name": "github-sync",
+  "version": "1.0.0",
+  "description": "GitHub 代码同步 - 自动将关注的开源项目同步到本地",
+  "emoji": "🔄",
+  "requires": {
+    "env": ["DISCORD_BOT1_TOKEN"]
+  }
+}
