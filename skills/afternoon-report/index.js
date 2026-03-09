@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   runCurl, todayString, ensureDir,
-  callAnthropic, sendToDiscord, sendToTelegram, parseRssItems, BRAIN_DIR,
+  callAnthropic, sendToDiscord, sendToTelegram, sendToDmwork, parseRssItems, BRAIN_DIR,
 } from "../_shared/proactive-utils.js";
 
 // ─── 配置 ────────────────────────────────────────────────────────────────────
@@ -136,6 +136,8 @@ export async function run(input) {
     const depth = params.depth || DEFAULT_DEPTH;
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
     const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
     const date = todayString();
 
     // ① 并行多源采集
@@ -176,8 +178,15 @@ export async function run(input) {
       catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
     }
 
+    // ⑥ DMWork 推送
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, reportContent, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
     return JSON.stringify({
-      ok: true, reportDate: date, topics, depth, sections, reportPath, discordMessageIds, telegramMessageIds,
+      ok: true, reportDate: date, topics, depth, sections, reportPath, discordMessageIds, telegramMessageIds, dmworkStatus,
       message: `下午研究报告已生成并推送到 Discord 频道 ${channelId}`,
     }, null, 2);
   } catch (error) {

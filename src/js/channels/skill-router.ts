@@ -178,11 +178,14 @@ export async function maybeRunSkillFirstV2(
     userId: context.userId,
     name: selected.name,
     confidence: decision.confidence,
-    reason: decision.reason
+    reason: decision.reason,
+    skillInput: decision.skillInput ?? null,
   });
 
   try {
-    const output = await runSkill(selected.name, raw);
+    // 优先使用 AI 从用户输入中提取的参数，fallback 到原始输入
+    const skillInput = decision.skillInput ?? raw;
+    const output = await runSkill(selected.name, skillInput);
 
     // 将 skill 执行结果记录到对话历史中
     if (agent.recordExternalExchange && output) {

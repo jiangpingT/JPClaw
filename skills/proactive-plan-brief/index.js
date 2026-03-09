@@ -12,7 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { sendToTelegram } from "../_shared/proactive-utils.js";
+import { sendToTelegram, sendToDmwork } from "../_shared/proactive-utils.js";
 
 const execAsync = promisify(exec);
 const MEMO = "/opt/homebrew/bin/memo";
@@ -276,6 +276,7 @@ export async function run(input) {
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
     const telegramChatId =
       params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
 
     const executionTime = nowString();
 
@@ -322,6 +323,13 @@ export async function run(input) {
       catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
     }
 
+    // ⑥ DMWork 推送
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, briefContent, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
     return JSON.stringify(
       {
         ok: true,
@@ -332,6 +340,7 @@ export async function run(input) {
         })),
         discordMessageIds,
         telegramMessageIds,
+        dmworkStatus,
         message: `Plan 备忘录动态播报完成（读取 ${notesWithContent.length} 条）`,
       },
       null,

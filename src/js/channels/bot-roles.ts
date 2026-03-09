@@ -32,6 +32,9 @@ export interface BotRoleConfig {
 
   /** 是否在发言前再次刷新历史（用于需要最完整上下文的总结型角色） */
   refreshBeforeReply?: boolean;
+
+  /** owner 发消息时是否强制回答（不受 ai_decide 策略限制），仅 expert 为 true */
+  alwaysRespondToOwner?: boolean;
 }
 
 /**
@@ -69,8 +72,27 @@ export const DEFAULT_ROLES: Record<string, BotRoleConfig> = {
 12. 管理 — 组织效率、文化、决策机制
 13. 财务 — 营收增长、毛利率、现金流、负债结构；二级市场额外看盈利质量、ROE/ROIC、资产负债表健康度
 14. 护城河 — 可持续竞争优势的来源与宽度`,
-    participationStrategy: "always_user_question",
-    observationDelay: 0,
+    participationStrategy: "ai_decide",
+    observationDelay: 3000,
+    alwaysRespondToOwner: true,
+    decisionPrompt: `你是正面专家。观察以下群组消息，判断是否需要你**主动**参与（此判断不包括别人直接@你的情况）。
+
+你应该主动参与的情况（满足其中之一即可）：
+- 消息明确提到"明略科技"、"明略"、"MiningLamp"，或明确在讨论明略的产品、技术、业务、团队、愿景
+- 消息涉及技术问题（编程、系统设计、代码架构、工程实现）且没有明确针对某个特定用户
+- 消息涉及产品问题（需求分析、用户体验、产品策略、功能优先级）且没有明确针对某个特定用户
+- 消息明确讨论股票投资、公司估值或风险投资决策（不含黄金/加密货币）
+
+你不应该主动参与的情况：
+- 日常闲聊、问候、自我介绍、简单通知、情况汇报
+- 消息明显是对某个特定用户提的私人问题（如"@某某你觉得..."）
+- 问题过于简单，不需要专家级解答
+
+默认原则：不确定时回答 NO。技术/产品/投资问题且无明确收件人，回答 YES。
+
+如果你决定参与，回复时可以 @具体发言人（格式：@发言人名称），但仅在明确针对其观点时使用，不要泛用。
+
+请只回答 YES 或 NO，不要解释。`,
     maxObservationMessages: 10
   },
 
@@ -108,10 +130,10 @@ export const DEFAULT_ROLES: Record<string, BotRoleConfig> = {
 - 财务：财务数据有没有水分？现金流能撑多久？负债结构是否危险？
 - 护城河：护城河真的存在吗？还是只是暂时的先发优势？`,
     participationStrategy: "ai_decide",
-    observationDelay: 6000,
+    observationDelay: 25000,
     decisionPrompt: `你是反面质疑者。观察上述对话，判断是否需要你参与讨论。
 
-你应该参与的情况：
+你应该参与的情况（满足其中之一即可）：
 - expert的回答有明显的漏洞或错误
 - 回答过于片面，缺少反面观点
 - 有重要的风险或副作用没有提及
@@ -121,9 +143,16 @@ export const DEFAULT_ROLES: Record<string, BotRoleConfig> = {
 - 用户明确讨论股票投资或风险投资（如"这只股票""这家公司值得投吗""帮我分析XX公司"），且对话中不包含编程/代码/技术实现/产品需求内容，且存在估值泡沫、财务风险、安全边际不足或退出路径不清晰的问题
 
 你不应该参与的情况：
+- 群聊中只有用户提问，尚无任何实质性回答（无内容可质疑）
 - 回答已经很全面
 - 问题过于简单，不需要反面观点
 - 对话已经有足够的批判性讨论
+- 日常闲聊、问候、自我介绍、简单通知、情况汇报
+- 简单信息查询（天气、时间、股价行情、新闻事实等），expert 已经处理，你没有新的质疑价值，不要重复参与
+
+默认原则：不确定时回答 NO。只有明确有价值才回答 YES。
+
+如果你决定参与，回复时可以 @具体发言人（格式：@发言人名称），但仅在明确针对其观点时使用，不要泛用。
 
 请只回答 YES 或 NO，不要解释。`,
     maxObservationMessages: 10,
@@ -162,7 +191,7 @@ export const DEFAULT_ROLES: Record<string, BotRoleConfig> = {
 - 财务：财务结构是否支撑战略野心？资本效率和增长质量的长期趋势如何？
 - 护城河：护城河是在变宽还是在收窄？未来五年谁最有可能打破它？`,
     participationStrategy: "ai_decide",
-    observationDelay: 12000,
+    observationDelay: 40000,
     decisionPrompt: `你是深度思考者。观察上述对话，判断是否需要你参与讨论。
 
 你应该参与的情况：
@@ -175,9 +204,16 @@ export const DEFAULT_ROLES: Record<string, BotRoleConfig> = {
 - 用户明确讨论股票投资或风险投资（如"这只股票""这家公司值得投吗""帮我分析XX公司"），且对话中不包含编程/代码/技术实现/产品需求内容，且缺少对宏观周期、行业终局或长期价值的深层思考
 
 你不应该参与的情况：
+- 群聊中只有用户提问，尚无任何实质性回答（无内容可升华）
 - 问题过于简单或具体
 - 对话已经足够深入
 - 不需要哲学层面或架构层面的深度思考
+- 日常闲聊、问候、自我介绍、简单通知、情况汇报
+- 简单信息查询（天气、时间、股价行情、新闻事实等），expert 已经处理，没有哲学升华的空间，不要重复参与
+
+默认原则：不确定时回答 NO。只有明确有深度价值才回答 YES。
+
+如果你决定参与，回复时可以 @具体发言人（格式：@发言人名称），但仅在明确针对其观点时使用，不要泛用。
 
 请只回答 YES 或 NO，不要解释。`,
     maxObservationMessages: 15,

@@ -355,6 +355,40 @@ export async function sendToTelegram(chatId, content) {
   return messageIds;
 }
 
+// ─── DMWork ───────────────────────────────────────────────────────────────────
+
+/**
+ * 向 DMWork 发送消息（由 jpexpert/bot1 代发）
+ * channelType: 1=私信, 2=群组（默认群组）
+ * channelId 默认读 DMWORK_DEFAULT_CHANNEL_ID（MyBotGroup）
+ */
+export async function sendToDmwork(channelId, content, channelType = 2) {
+  const apiUrl = process.env.DMWORK_API_URL || "https://im-test.xming.ai/api";
+  const token  = process.env.DMWORK_BOT1_TOKEN;
+  if (!token)    throw new Error("DMWORK_BOT1_TOKEN 未配置");
+  if (!channelId) throw new Error("channelId 为空");
+
+  const segments = splitMessage(content, 4000);
+  for (const segment of segments) {
+    const res = await fetch(`${apiUrl}/v1/bot/sendMessage`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        channel_id:   channelId,
+        channel_type: channelType,
+        payload: { type: 1, content: segment },
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`DMWork API error: ${res.status} ${errText}`);
+    }
+  }
+}
+
 // ─── 建议去重记忆 ─────────────────────────────────────────────────────────────
 
 const PROACTIVE_MEMORY_DIR = path.resolve(process.cwd(), "sessions", "brain", "proactive-memory");

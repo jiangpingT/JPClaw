@@ -30,6 +30,8 @@ export interface IntentDecision {
   missingSlots: string[];
   /** 决策原因 */
   reason: string;
+  /** 从用户输入中提取的技能参数（JSON 字符串，供 runSkill 使用） */
+  skillInput?: string;
 }
 
 /**
@@ -208,12 +210,21 @@ ${candidateDetails}
 1. 应该使用哪个技能？（如果都不合适，返回 "none"）
 2. 置信度（0-1）
 3. 缺失的必需参数（如果有）
+4. 从用户输入中提取技能所需的关键参数（city / query / location 等纯字符串，不是 JSON）
 
-返回 JSON：
+提取参数示例：
+- 用户说"上海今天天气" → skillParamKey: "city", skillParamValue: "上海"
+- 用户说"查一下苹果股价" → skillParamKey: "query", skillParamValue: "苹果 AAPL 股价"
+- 用户说"帮我搜索最新新闻" → skillParamKey: "query", skillParamValue: "最新新闻"
+- 如果无需特定参数（如 workspace-status），省略 skillParamKey 和 skillParamValue
+
+返回 JSON（所有值都是基本类型，不要嵌套对象）：
 {
-  "selectedSkill": "web-search" | "none",
+  "selectedSkill": "web-search",
   "confidence": 0.85,
-  "missingSlots": ["location"],
+  "missingSlots": [],
+  "skillParamKey": "query",
+  "skillParamValue": "最新新闻",
   "reason": "用户明确要求搜索"
 }
 
@@ -224,8 +235,8 @@ ${candidateDetails}
       const response = await provider.generate(messages);
       const text = response.text.trim();
 
-      // 提取 JSON 对象
-      const match = text.match(/\{[\s\S]*?\}/);
+      // 提取最外层 JSON 对象（括号计数法，正确处理嵌套）
+      const match = extractOutermostJsonObject(text);
       if (!match) {
         log("warn", "intent_system.decision.invalid_json", { response: text });
         return createSuccess({
@@ -236,12 +247,19 @@ ${candidateDetails}
         });
       }
 
-      const decision = JSON.parse(match[0]) as {
+      const decision = JSON.parse(match) as {
         selectedSkill: string;
         confidence: number;
         missingSlots?: string[];
+        skillParamKey?: string;
+        skillParamValue?: string;
         reason: string;
       };
+
+      // 将平铺参数组装成 skillInput JSON 字符串
+      const skillInput = (decision.skillParamKey && decision.skillParamValue)
+        ? JSON.stringify({ [decision.skillParamKey]: decision.skillParamValue })
+        : undefined;
 
       // none → 降级到模型
       if (decision.selectedSkill === "none" || !decision.selectedSkill) {
@@ -271,6 +289,7 @@ ${candidateDetails}
         skillName: decision.selectedSkill,
         confidence: decision.confidence,
         missingSlots: [],
+        skillInput,
         reason: decision.reason
       });
     } catch (error) {
@@ -292,4 +311,22 @@ ${candidateDetails}
       });
     }
   }
+}
+
+/**
+ * 用括号计数法提取最外层 JSON 对象，正确处理嵌套结构。
+ * 非贪婪正则 /\{[\s\S]*?\}/ 只能取到第一个 }，遇到嵌套对象会截断导致 parse 失败。
+ */
+function extractOutermostJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
 }

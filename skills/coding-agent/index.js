@@ -21,7 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import {
-  sendToDiscord, sendToTelegram, ensureDir, BRAIN_DIR,
+  sendToDiscord, sendToTelegram, sendToDmwork, ensureDir, BRAIN_DIR,
 } from "../_shared/proactive-utils.js";
 
 // ─── 配置 ────────────────────────────────────────────────────────────────────
@@ -236,8 +236,9 @@ async function startSession({
     ].join("\n");
 
     await Promise.allSettled([
-      channelId      ? sendToDiscord(channelId, msg)        : Promise.resolve(),
-      telegramChatId ? sendToTelegram(telegramChatId, msg)  : Promise.resolve(),
+      channelId       ? sendToDiscord(channelId, msg)          : Promise.resolve(),
+      telegramChatId  ? sendToTelegram(telegramChatId, msg)    : Promise.resolve(),
+      dmworkChannelId ? sendToDmwork(dmworkChannelId, msg, 2)  : Promise.resolve(),
     ]);
   });
 
@@ -281,6 +282,7 @@ export async function run(input) {
       notifyOnDone   = true,
       channelId      = process.env.DEFAULT_DISCORD_CHANNEL_ID,
       telegramChatId = process.env.DEFAULT_TELEGRAM_CHAT_ID,
+      dmworkChannelId = process.env.DMWORK_DEFAULT_CHANNEL_ID || "",
     } = params;
 
     // ── start ─────────────────────────────────────────────────────────────────

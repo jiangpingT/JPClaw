@@ -226,6 +226,38 @@ export class PiEngine implements ChatEngine {
 
     const agent = this.getOrCreateAgent(sessionKey, userId, channelId, agentId);
 
+    // 群聊 session：注入群组频道系统提示（只注入一次，防重复）
+    const isGroupSession = userId.startsWith("group:");
+    if (isGroupSession) {
+      const currentPrompt = agent.state.systemPrompt ?? "";
+      const GROUP_ADDENDUM_VERSION = "discover_peers";
+      if (!currentPrompt.includes(GROUP_ADDENDUM_VERSION)) {
+        // 移除旧版 addendum（如有），注入新版
+        const basePrompt = currentPrompt.includes("## 群组频道模式")
+          ? currentPrompt.slice(0, currentPrompt.indexOf("\n## 群组频道模式"))
+          : currentPrompt;
+        const botIdLine = agentId
+          ? `你自己的 Bot ID 是 "${agentId}"（调用 peer-ask skill 时用作 from_bot_id）。`
+          : "";
+        const groupContextAddendum = [
+          "",
+          "## 群组频道模式",
+          "你正在一个群组频道中，消息格式为「[发言人]: 内容」，发言人可以是人类或机器人。",
+          "**当你的观点针对某位发言人的具体内容时，应该使用 @发言人名称 明确指向**（如 @正面专家、@反面质疑者、@深度思考者，或 @用户名）。",
+          "@mention 是群聊讨论的基本礼仪：质疑要有对象，补充要有来源，这样才能形成真正的对话而不是各说各的。",
+          "原则：只在有实质性新贡献时发言；避免重复已有观点；质疑和补充要指向具体内容和具体人。",
+          "",
+          "## 同伴协作能力",
+          botIdLine,
+          "你可以使用 discover_peers 工具查看所有同伴 Bot 的专长（specialties）和联系渠道。",
+          "当问题超出你的专长范围，且你确信某个同伴更适合处理时，可以：",
+          "1. 先告知用户你要去找同伴协助",
+          "2. 用 peer-ask skill 向同伴所在频道发出请求（JSON 输入：{from_bot_id, to_channel_id, message}）",
+        ].filter(Boolean).join("\n");
+        agent.setSystemPrompt(basePrompt + groupContextAddendum);
+      }
+    }
+
     // Try AI-powered skill routing before other processing
     const skillRouterContext = {
       userId,
@@ -233,9 +265,38 @@ export class PiEngine implements ChatEngine {
       channelId: channelId || "unknown",
       traceId: context.traceId
     };
-    const skillRouted = await maybeRunSkillFirst(this, input, skillRouterContext);
+    // 群聊场景下 input 包含历史消息，只取最新用户消息传给 skill-router
+    // 防止 LLM 从历史上下文中提取错误的参数（如把历史里的"北京"当成当前城市）
+    const NEW_MSG_SEP = "---\n当前需要回答的新消息：\n";
+    const rawForSkillRouter = input.includes(NEW_MSG_SEP)
+      ? input.slice(input.lastIndexOf(NEW_MSG_SEP) + NEW_MSG_SEP.length).trim()
+      : input;
+    const skillRouted = await maybeRunSkillFirst(this, rawForSkillRouter, skillRouterContext);
     if (skillRouted) {
-      return this.recordDeterministicReply(sessionKey, userId, channelId, agentId, input, skillRouted);
+      // 二进制/文件类 skill（robot_gif、file_attachment）直接透传给 bot handler 拦截处理，
+      // 不经过 LLM 综合——否则 LLM 会把 JSON 翻译成自然语言，导致文件无法发出。
+      if (isBinarySkillResult(skillRouted)) {
+        return skillRouted;
+      }
+
+      // skill 数据已通过 recordExternalExchange 写入 agent 历史。
+      // 追加综合指令，让 LLM 基于工具数据给出针对原始问题的完整答复，
+      // 而不是机械地直接返回原始工具输出。
+      return this.enqueuePrompt(sessionKey, async () => {
+        await this.maybeUpdateSystemPromptWithMemory(agent, sessionKey, userId, context.userName, input);
+        const prevLen = agent.state.messages.length;
+        const synthesisInstruction = `请直接回答用户的问题："${input}"。基于上方工具数据给出结论，不要重复展示原始数据。`;
+        try {
+          await agent.prompt(synthesisInstruction);
+          const text = extractLastAssistantText(agent.state.messages);
+          this.saveSession(sessionKey, userId, channelId, agent.state.messages);
+          this.appendTranscript(sessionKey, agent.state.messages.slice(prevLen));
+          return text.trim() || skillRouted;
+        } catch (error) {
+          log("error", "pi.skill_synthesis.failed", { error: String(error) });
+          return skillRouted; // fallback：出错时返回原始 skill 输出
+        }
+      });
     }
 
     this.refreshBm25Cache(sessionKey, userId, context.userName, input);
@@ -962,9 +1023,6 @@ export class PiEngine implements ChatEngine {
       sessionId: `pi_summary_${Date.now()}`
     });
     summaryAgent.setModel(this.modelInfo!.model);
-    summaryAgent.setSystemPrompt(
-      "你是对话摘要助手，请输出 5-8 条要点，尽量保留任务、约束、结论与后续动作。"
-    );
     summaryAgent.setTools([]);
     let text = messages
       .map((msg) => {
@@ -978,6 +1036,12 @@ export class PiEngine implements ChatEngine {
     if (text.length > maxChars) {
       text = text.slice(-maxChars);
     }
+    // 检测是否为群聊消息（群聊消息包含「[发言人]: 内容」或「【发言人 [Bot]】：内容」格式）
+    const isGroupContent = /\[.+?\][:：]/.test(text);
+    const summarySystemPrompt = isGroupContent
+      ? "你是对话摘要助手，请输出5-8条要点，保留发言人归属，格式：「发言人：要点内容」。保留关键观点、任务分配和决策结论。"
+      : "你是对话摘要助手，请输出5-8条要点，尽量保留任务、约束、结论与后续动作。";
+    summaryAgent.setSystemPrompt(summarySystemPrompt);
     await summaryAgent.prompt(`请总结以下对话：\n${text}`);
     return extractLastAssistantText(summaryAgent.state.messages).trim();
   }
@@ -1322,6 +1386,14 @@ function resolveThinkingLevel(): "off" | "minimal" | "low" | "medium" | "high" |
     return normalized as any;
   }
   return undefined;
+}
+
+/**
+ * 判断 skill 返回值是否为需要直接透传给 bot handler 的二进制/文件类结果。
+ * 这类结果不能经过 LLM 综合，否则 JSON 会被翻译成自然语言，文件无法发出。
+ */
+function isBinarySkillResult(text: string): boolean {
+  return text.includes('"type":"robot_gif"') || text.includes('"type":"file_attachment"');
 }
 
 function extractLastAssistantText(messages: AgentMessage[]): string {

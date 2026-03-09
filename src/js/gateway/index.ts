@@ -19,6 +19,7 @@ import { listSkills, listAgentSkills, runSkill } from "../skills/registry.js";
 import { VoiceWakeService } from "../voice/wake.js";
 import { startDiscordChannel } from "../channels/discord.js";
 import { startTelegramChannel } from "../channels/telegram.js";
+import { startDmworkChannel } from "../channels/dmwork.js";
 import { MultiAgentRouter } from "../agents/router.js";
 import { FixedAgentEngine } from "../agents/fixed-agent-engine.js";
 import { startScheduler } from "../scheduler/runner.js";
@@ -30,6 +31,7 @@ import { vectorMemoryStore } from "../memory/vector-store.js";
 import { conflictResolver } from "../memory/conflict-resolver.js";
 import type { DiscordBotConfig } from "../shared/config.js";
 import { validateAndParse, commonValidators, type Validator } from "../shared/validation.js";
+import { dashboardBus } from "../shared/dashboard-bus.js";
 
 /**
  * P0-4: 全局异常处理器
@@ -250,6 +252,9 @@ export async function startGateway(): Promise<ShutdownFunction> {
 
   // Telegram 渠道（Polling 模式）
   const telegram = startTelegramChannel(config.channels.telegram, engine);
+
+  // DMWork 渠道（WebSocket 模式）
+  const dmwork = startDmworkChannel(config.channels.dmwork, engine);
 
   const heartbeat = new HeartbeatService({
     enabled: process.env.JPCLAW_HEARTBEAT_ENABLED === "true",
@@ -610,7 +615,7 @@ export async function startGateway(): Promise<ShutdownFunction> {
 
     if (req.method === "GET" && req.url === "/dashboard") {
       try {
-        const dashboardPath = path.join(process.cwd(), "src", "js", "gateway", "dashboard-main.html");
+        const dashboardPath = path.join(process.cwd(), "dashboard", "index.html");
         const dashboardContent = await fs.promises.readFile(dashboardPath, "utf-8");
 
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -878,7 +883,7 @@ export async function startGateway(): Promise<ShutdownFunction> {
     safeResponse(404, { error: "not_found" });
   });
 
-  const wss = new WebSocketServer({ server, path: "/canvas" });
+  const wss = new WebSocketServer({ noServer: true });
 
   // P0-NEW-5修复: WebSocket 僵尸连接检测
   const WS_PING_INTERVAL_MS = 30000; // 30秒发一次 ping
@@ -930,6 +935,37 @@ export async function startGateway(): Promise<ShutdownFunction> {
     socket.on("close", () => {
       clearInterval(pingInterval);
     });
+  });
+
+  // Dashboard WebSocket：实时推送群聊事件
+  const dashboardClients = new Set<WebSocket>();
+  const dashboardWss = new WebSocketServer({ noServer: true });
+
+  dashboardWss.on("connection", (socket) => {
+    dashboardClients.add(socket);
+    socket.on("close", () => dashboardClients.delete(socket));
+    socket.on("error", () => { dashboardClients.delete(socket); try { socket.terminate(); } catch {} });
+  });
+
+  // 统一路由 WebSocket upgrade 请求（ws 库多实例必须用 noServer 手动分发）
+  server.on("upgrade", (request, socket, head) => {
+    const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+    if (pathname === "/canvas") {
+      wss.handleUpgrade(request, socket, head, (ws) => wss.emit("connection", ws, request));
+    } else if (pathname === "/dashboard/ws") {
+      dashboardWss.handleUpgrade(request, socket, head, (ws) => dashboardWss.emit("connection", ws, request));
+    } else {
+      socket.destroy();
+    }
+  });
+
+  dashboardBus.on("message", (event) => {
+    const data = JSON.stringify(event);
+    for (const client of dashboardClients) {
+      if (client.readyState === WebSocket.OPEN) {
+        try { client.send(data); } catch { dashboardClients.delete(client); }
+      }
+    }
   });
 
   const voiceWake = new VoiceWakeService({

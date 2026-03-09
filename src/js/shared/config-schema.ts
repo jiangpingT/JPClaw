@@ -77,6 +77,19 @@ const WecomChannelConfigSchema = ChannelConfigBaseSchema.extend({
   callbackDomain: z.string().optional()
 });
 
+// DMWork Bot 配置
+const DmworkBotConfigSchema = z.object({
+  enabled: z.boolean(),
+  botToken: z.string(),   // 注册 token（bf_xxx）
+  robotId: z.string(),    // 注册后的 robot_id
+  imToken: z.string(),    // 注册后的 im_token
+  wsUrl: z.string(),      // WebSocket 地址
+  apiUrl: z.string(),     // REST API 地址
+  ownerUid: z.string(),   // 机器人拥有者 uid
+  agentId: z.string().optional(),
+  name: z.string().optional(),
+});
+
 // 频道配置
 const ChannelsConfigSchema = z.object({
   discord: z.union([
@@ -88,7 +101,11 @@ const ChannelsConfigSchema = z.object({
   telegram: z.union([
     TelegramChannelConfigSchema, // 向后兼容：单个 bot 配置
     z.array(TelegramBotConfigSchema) // 新功能：多个 bot 配置
-  ]).optional()
+  ]).optional(),
+  dmwork: z.union([
+    DmworkBotConfigSchema,             // 向后兼容：单个 bot 配置
+    z.array(DmworkBotConfigSchema)     // 多 bot 配置
+  ]).optional(),
 });
 
 // IP 地址验证正则
@@ -122,6 +139,7 @@ export type DiscordBotConfig = z.infer<typeof DiscordBotConfigSchema>;
 export type WecomChannelConfig = z.infer<typeof WecomChannelConfigSchema>;
 export type TelegramChannelConfig = z.infer<typeof TelegramChannelConfigSchema>;
 export type TelegramBotConfig = z.infer<typeof TelegramBotConfigSchema>;
+export type DmworkBotConfig = z.infer<typeof DmworkBotConfigSchema>;
 
 /**
  * 验证配置并返回友好的错误信息

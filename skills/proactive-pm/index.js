@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   runCurl, todayString, ensureDir,
-  callAnthropic, sendToDiscord, sendToTelegram, parseRssItems, BRAIN_DIR,
+  callAnthropic, sendToDiscord, sendToTelegram, sendToDmwork, parseRssItems, BRAIN_DIR,
 } from "../_shared/proactive-utils.js";
 
 // ─── 配置 ────────────────────────────────────────────────────────────────────
@@ -264,8 +264,9 @@ export async function run(input) {
     let params = {};
     try { params = typeof input === "string" ? JSON.parse(input) : input || {}; } catch { params = {}; }
 
-    const channelId = params.channelId || DEFAULT_CHANNEL_ID;
+    const channelId      = params.channelId      || DEFAULT_CHANNEL_ID;
     const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
     const date = todayString();
 
     // ① 并行采集全局 + 各域数据
@@ -313,8 +314,15 @@ export async function run(input) {
       catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
     }
 
+    // ⑥ DMWork 推送（MyBotGroup）
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, reportContent, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
     return JSON.stringify({
-      ok: true, reportDate: date, stats, reportPath, discordMessageIds, telegramMessageIds,
+      ok: true, reportDate: date, stats, reportPath, discordMessageIds, telegramMessageIds, dmworkStatus,
       message: `主动产品经理报告已生成，ProductHunt ${phItems.length} 条，HN ${hnShows.length + hnLaunches.length} 条`,
     }, null, 2);
   } catch (error) {

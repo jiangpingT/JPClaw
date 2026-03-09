@@ -95,6 +95,9 @@ export class TelegramBotHandler {
   private readonly MAX_CONCURRENT = 5;
   private droppedMessageCount = 0;
 
+  // 本 bot 的 Telegram username（异步获取后缓存，用于 @mention 检测）
+  private botUsername: string | null = null;
+
   // message_id 去重（防止 Telegram polling 重发同一条消息）
   private processedMessageIds = new Map<string, number>();
   private readonly DEDUPE_WINDOW_MS = 10000; // 10 秒内同一消息只处理一次
@@ -128,6 +131,19 @@ export class TelegramBotHandler {
     });
 
     this.startPeriodicCleanup();
+    // 异步获取并缓存 bot 自身的 username，用于 @mention 检测
+    this.bot.getMe().then(me => { this.botUsername = me.username ?? null; }).catch(() => {});
+  }
+
+  /** 检测消息是否直接 @mention 了本 bot */
+  private isBotMentioned(msg: TelegramBot.Message): boolean {
+    if (!this.botUsername) return false;
+    const entities = msg.entities || msg.caption_entities || [];
+    const text = msg.text || msg.caption || "";
+    return entities.some(
+      e => e.type === "mention" &&
+           text.substring(e.offset, e.offset + e.length) === `@${this.botUsername}`
+    );
   }
 
   /**
@@ -204,8 +220,27 @@ export class TelegramBotHandler {
     });
 
     try {
-      if (this.roleConfig.participationStrategy === "always_user_question") {
-        await this.handleAsExpert(msg);
+      // 检测是否被直接 @mention 或是 owner 发来的
+      const isMentioned = this.isBotMentioned(msg);
+      const isOwner = !!(this.roleConfig.alwaysRespondToOwner &&
+        process.env.TELEGRAM_OWNER_USER_ID &&
+        String(msg.from?.id) === process.env.TELEGRAM_OWNER_USER_ID);
+      const forceReply = isMentioned || isOwner;
+
+      // 消息 @了其他人但没有 @本 bot → 是对别人说的，直接跳过（owner 消息豁免）
+      // 注意：botUsername 未加载时跳过此过滤（fail-open），避免误丢 @mention 消息
+      if (!forceReply && this.botUsername) {
+        const hasMentionEntities = (msg.entities || []).some(
+          e => e.type === "mention" || e.type === "text_mention"
+        );
+        if (hasMentionEntities && !isMentioned) {
+          log("debug", "telegram.bot_handler.message_directed_at_others", { role: this.roleConfig.name });
+          return;
+        }
+      }
+
+      if (forceReply || this.roleConfig.participationStrategy === "always_user_question") {
+        await this.handleAsExpert(msg, forceReply);
       } else if (this.roleConfig.participationStrategy === "ai_decide") {
         await this.handleWithObservation(msg);
       }
@@ -225,9 +260,9 @@ export class TelegramBotHandler {
   /**
    * 作为 Expert 处理（总是回答用户问题）
    */
-  private async handleAsExpert(msg: TelegramBot.Message): Promise<void> {
-    // Expert 只响应非回复消息（新问题）
-    if (msg.reply_to_message) {
+  private async handleAsExpert(msg: TelegramBot.Message, forcedByMention = false): Promise<void> {
+    // Expert 只响应非回复消息（新问题），被直接 @mention 时强制响应
+    if (!forcedByMention && msg.reply_to_message) {
       log("debug", "telegram.bot_handler.expert.not_new_question", {
         role: this.roleConfig.name,
         hasReply: true
@@ -298,13 +333,24 @@ export class TelegramBotHandler {
     // 记录用户消息到 conversationStore（新问题，isReply=false）
     this.conversationStore.recordMessage(chatId, userName, text, false, msg.message_id, false);
 
+    // 群组：注入最近对话历史 + 发言人归属，使用频道级 session（同事模型）
+    const isGroup = msg.chat.type === "group" || msg.chat.type === "supergroup";
+    let contextualInput = text;
+    if (isGroup) {
+      const recentHistory = this.conversationStore.getHistory(chatId, 8);
+      const historyText = formatConversationHistory(recentHistory);
+      contextualInput = historyText
+        ? `${historyText}\n\n---\n当前需要回答的新消息：\n[${userName}]: ${text}`
+        : `[${userName}]: ${text}`;
+    }
+
     try {
       // 发送 typing 状态
       this.bot.sendChatAction(chatId, "typing").catch(() => {});
 
       // 调用 AI
-      const result = await this.agentV2.replyV2(text, {
-        userId: String(userId),
+      const result = await this.agentV2.replyV2(contextualInput, {
+        userId: isGroup ? `group:${chatId}` : String(userId),
         userName,
         channelId: `telegram:${chatId}`,
         agentId: this.config.agentId
@@ -913,11 +959,11 @@ export class TelegramBotHandler {
 
     // 构造提示词
     const finalFormattedHistory = formatConversationHistory(history);
-    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n请以【${this.roleConfig.name}】的视角，对上述对话进行回应。`;
+    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n请以【${this.roleConfig.name}】的视角，对上述对话进行回应。针对某位发言人的具体观点时，用 @发言人名称 明确指向，让讨论有来有往。`;
 
     try {
       const response = await this.agent.reply(fullPrompt, {
-        userId: "system",
+        userId: `group:${chatId}`,
         userName: this.roleConfig.name,
         channelId: `telegram:${chatId}`,
         agentId: this.config.agentId

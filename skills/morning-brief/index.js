@@ -9,7 +9,7 @@ import { exec } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { sendToTelegram } from "../_shared/proactive-utils.js";
+import { sendToTelegram, sendToDmwork } from "../_shared/proactive-utils.js";
 
 // ─── 配置 ────────────────────────────────────────────────────────────────────
 
@@ -486,6 +486,7 @@ export async function run(input) {
     const city = params.city || DEFAULT_CITY;
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
     const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
     const newsTopics = params.newsTopics || DEFAULT_NEWS_TOPICS;
 
     // ① 并行获取数据
@@ -518,7 +519,14 @@ export async function run(input) {
       catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
     }
 
-    // ⑤ 返回结果
+    // ⑤ 推送到 DMWork
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, briefContent, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
+    // ⑥ 返回结果
     return JSON.stringify(
       {
         ok: true,
@@ -526,6 +534,7 @@ export async function run(input) {
         sections,
         discordMessageIds,
         telegramMessageIds,
+        dmworkStatus,
         message: `晨间简报已推送到 Discord 频道 ${channelId}`,
       },
       null,

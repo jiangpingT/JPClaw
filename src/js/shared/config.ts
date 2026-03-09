@@ -2,17 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadEnv } from "./env.js";
 import { JPClawConfigSchema, validateConfig, validateEnvConfig } from "./config-schema.js";
-import type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig, TelegramChannelConfig, TelegramBotConfig } from "./config-schema.js";
+import type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig, TelegramChannelConfig, TelegramBotConfig, DmworkBotConfig } from "./config-schema.js";
 import { JPClawError, ErrorCode } from "./errors.js";
 
 // 重新导出类型
-export type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig, TelegramChannelConfig, TelegramBotConfig };
+export type { JPClawConfig, ProviderConfig, ChannelConfig, DiscordBotConfig, WecomChannelConfig, TelegramChannelConfig, TelegramBotConfig, DmworkBotConfig };
 
 const DEFAULT_CONFIG: JPClawConfig = {
   providers: [],
   channels: {},
   gateway: {
-    host: "127.0.0.1",
+    host: "0.0.0.0",
     port: 18790
   },
   dataDir: "sessions"
@@ -275,6 +275,62 @@ function mergeChannelEnv(channels: JPClawConfig["channels"]): JPClawConfig["chan
       enabled: true,
       token: process.env.TELEGRAM_BOT_TOKEN,
       proxyUrl: process.env.TELEGRAM_PROXY_URL
+    };
+  }
+
+  // DMWork 多 bot 支持
+  const dmworkBots: any[] = [];
+  const dmworkBotTokenPattern = /^DMWORK_BOT(\d+)_TOKEN$/;
+  const dmworkBotNumbers = new Set<number>();
+
+  for (const key in process.env) {
+    const match = key.match(dmworkBotTokenPattern);
+    if (match) dmworkBotNumbers.add(parseInt(match[1]));
+  }
+
+  if (dmworkBotNumbers.size > 0) {
+    const wsUrl = process.env.DMWORK_WS_URL || "wss://im-test.xming.ai/ws";
+    const apiUrl = process.env.DMWORK_API_URL || "https://im-test.xming.ai/api";
+    const ownerUid = process.env.DMWORK_OWNER_UID || "";
+
+    for (const num of Array.from(dmworkBotNumbers).sort((a, b) => a - b)) {
+      const botToken = process.env[`DMWORK_BOT${num}_TOKEN`];
+      const robotId = process.env[`DMWORK_BOT${num}_ROBOT_ID`];
+      const imToken = process.env[`DMWORK_BOT${num}_IM_TOKEN`];
+      const name = process.env[`DMWORK_BOT${num}_NAME`] || `dmbot${num}`;
+      const agentId = process.env[`DMWORK_BOT${num}_AGENT`];
+
+      if (botToken && robotId && imToken) {
+        dmworkBots.push({
+          enabled: true,
+          botToken,
+          robotId,
+          imToken,
+          wsUrl,
+          apiUrl,
+          ownerUid,
+          name,
+          agentId: agentId || undefined,
+        });
+      }
+    }
+
+    if (dmworkBots.length > 0) {
+      next.dmwork = dmworkBots;
+    }
+  }
+  // 向后兼容：支持单个 DMWORK_BOT_TOKEN
+  else if (process.env.DMWORK_BOT_TOKEN && process.env.DMWORK_IM_TOKEN) {
+    next.dmwork = {
+      enabled: true,
+      botToken: process.env.DMWORK_BOT_TOKEN,
+      robotId: process.env.DMWORK_ROBOT_ID || "jpclaw_bot",
+      imToken: process.env.DMWORK_IM_TOKEN,
+      wsUrl: process.env.DMWORK_WS_URL || "wss://im-test.xming.ai/ws",
+      apiUrl: process.env.DMWORK_API_URL || "https://im-test.xming.ai/api",
+      ownerUid: process.env.DMWORK_OWNER_UID || "",
+      agentId: process.env.DMWORK_AGENT_ID,
+      name: process.env.DMWORK_NAME || "jpclaw",
     };
   }
 

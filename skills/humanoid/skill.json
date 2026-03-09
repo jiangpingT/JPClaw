@@ -1,0 +1,6 @@
+{
+  "name": "humanoid",
+  "description": "人形机器人行走控制，生成仿真 GIF 动画",
+  "entry": "index.js",
+  "permissions": ["network", "fs"]
+}

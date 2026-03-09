@@ -10,7 +10,7 @@ import { exec } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { sendToTelegram } from "../_shared/proactive-utils.js";
+import { sendToTelegram, sendToDmwork } from "../_shared/proactive-utils.js";
 
 // ─── 默认配置 ────────────────────────────────────────────────────────────────
 
@@ -252,6 +252,7 @@ export async function run(input) {
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
     const telegramChatId =
       params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
 
     // 顺序同步（避免并发 git 操作互相干扰）
     const results = [];
@@ -280,6 +281,12 @@ export async function run(input) {
       }
     }
 
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, message, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
     return JSON.stringify(
       {
         ok: true,
@@ -287,6 +294,7 @@ export async function run(input) {
         results,
         discordMessageIds,
         telegramMessageIds,
+        dmworkStatus,
         message: "GitHub 代码同步完成",
       },
       null,

@@ -8,7 +8,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { sendToDiscord, sendToTelegram } from "../_shared/proactive-utils.js";
+import { sendToDiscord, sendToTelegram, sendToDmwork } from "../_shared/proactive-utils.js";
 
 const execFileAsync = promisify(execFile);
 const REMINDCTL = "/opt/homebrew/bin/remindctl";
@@ -106,6 +106,7 @@ export async function run(input) {
   const {
     channelId = DEFAULT_CHANNEL_ID,
     telegramChatId = DEFAULT_TELEGRAM_ID,
+    dmworkChannelId = process.env.DMWORK_DEFAULT_CHANNEL_ID || "",
   } = params;
 
   // 并行拉取今日 + 逾期事项
@@ -124,9 +125,10 @@ export async function run(input) {
   const report = buildReport(todayOnly, overdueItems);
 
   // 并行推送
-  const [discordResult, telegramResult] = await Promise.allSettled([
+  const [discordResult, telegramResult, dmworkResult] = await Promise.allSettled([
     sendToDiscord(channelId, report),
-    telegramChatId ? sendToTelegram(telegramChatId, report) : Promise.resolve([]),
+    telegramChatId  ? sendToTelegram(telegramChatId, report)        : Promise.resolve([]),
+    dmworkChannelId ? sendToDmwork(dmworkChannelId, report, 2)      : Promise.resolve(null),
   ]);
 
   return JSON.stringify({
@@ -135,6 +137,7 @@ export async function run(input) {
     overdueCount: overdueItems.filter((r) => !r.isCompleted).length,
     discord: discordResult.status === "fulfilled" ? discordResult.value : `error: ${discordResult.reason}`,
     telegram: telegramResult.status === "fulfilled" ? telegramResult.value : `error: ${telegramResult.reason}`,
+    dmwork: dmworkResult.status === "fulfilled" ? "ok" : `error: ${dmworkResult.reason}`,
   });
 }
 

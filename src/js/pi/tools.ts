@@ -611,6 +611,37 @@ export function createPiTools(): AgentTool<any>[] {
           details: { key, updated }
         };
       }
+    },
+    {
+      name: "discover_peers",
+      label: "Discover Peer Bots",
+      description: "查看所有同伴 Bot 的能力卡片（specialties / notGoodAt / channels）。在决定是否向同伴求助之前，先调用此工具了解他们的专长，再用 peer-ask skill 发出请求。",
+      parameters: {
+        type: "object",
+        properties: {}
+      } as any,
+      execute: async (_toolCallId: string, _params: any) => {
+        const botsDir = path.resolve(WORKSPACE_ROOT, "bots");
+        if (!fs.existsSync(botsDir)) {
+          return {
+            content: [{ type: "text" as const, text: "暂无同伴 Bot 信息（bots/ 目录不存在）" }],
+            details: { count: 0 }
+          };
+        }
+        const cards: unknown[] = [];
+        for (const entry of fs.readdirSync(botsDir, { withFileTypes: true })) {
+          if (!entry.isDirectory()) continue;
+          const cardPath = path.join(botsDir, entry.name, "card.json");
+          if (!fs.existsSync(cardPath)) continue;
+          try {
+            cards.push(JSON.parse(fs.readFileSync(cardPath, "utf-8")));
+          } catch { /* skip malformed cards */ }
+        }
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(cards, null, 2) }],
+          details: { count: cards.length }
+        };
+      }
     }
   ];
 

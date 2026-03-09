@@ -217,9 +217,22 @@ export class DiscordBotHandler {
     });
 
     try {
-      // 3. 根据策略决定如何处理
-      if (this.roleConfig.participationStrategy === "always_user_question") {
-        await this.handleAsExpert(message);
+      // 3. 检测是否被直接 @mention 或是 owner 发来的
+      const isMentioned = !!(this.client.user && message.mentions.has(this.client.user));
+      const isOwner = !!(this.roleConfig.alwaysRespondToOwner &&
+        process.env.JPCLAW_OWNER_DISCORD_ID &&
+        message.author.id === process.env.JPCLAW_OWNER_DISCORD_ID);
+      const forceReply = isMentioned || isOwner;
+
+      // 4. 消息 @了其他人但没有 @本 bot → 是对别人说的，直接跳过（owner 消息豁免）
+      if (!forceReply && message.mentions.users.size > 0 && !isMentioned) {
+        log("debug", "discord.bot_handler.message_directed_at_others", { role: this.roleConfig.name });
+        return;
+      }
+
+      // 5. 根据策略决定如何处理
+      if (forceReply || this.roleConfig.participationStrategy === "always_user_question") {
+        await this.handleAsExpert(message, forceReply);
       } else if (this.roleConfig.participationStrategy === "ai_decide") {
         await this.handleWithObservation(message);
       }
@@ -253,9 +266,9 @@ export class DiscordBotHandler {
   /**
    * 作为Expert处理（总是回答用户问题）
    */
-  private async handleAsExpert(message: Message): Promise<void> {
-    // 只响应新的用户问题（不是回复）
-    if (!isNewUserQuestion(message)) {
+  private async handleAsExpert(message: Message, forcedByMention = false): Promise<void> {
+    // 只响应新的用户问题（不是回复），被直接 @mention 时强制响应
+    if (!forcedByMention && !isNewUserQuestion(message)) {
       log("debug", "discord.bot_handler.expert.not_new_question", {
         hasReference: !!message.reference,
         role: this.roleConfig.name
@@ -324,9 +337,23 @@ export class DiscordBotHandler {
         });
       }
 
+      // 群组：注入最近对话历史 + 发言人归属，使用频道级 session（同事模型）
+      const isGroup = !!message.guild;
+      let contextualInput = fullMessage;
+      if (isGroup) {
+        try {
+          const recentHistory = await getRecentChannelHistory(message.channel as TextChannel, 8);
+          const historyText = formatConversationHistory(recentHistory);
+          const senderName = message.member?.nickname || message.author.username;
+          contextualInput = historyText
+            ? `${historyText}\n\n---\n当前需要回答的新消息：\n[${senderName}]: ${fullMessage}`
+            : `[${senderName}]: ${fullMessage}`;
+        } catch { /* 历史读取失败不影响主流程 */ }
+      }
+
       // 阶段2.4：使用 V2 API
-      const result = await this.agentV2.replyV2(fullMessage, {
-        userId: message.author.id,
+      const result = await this.agentV2.replyV2(contextualInput, {
+        userId: isGroup ? `group:${message.channelId}` : message.author.id,
         userName: message.author.username,
         channelId: message.channelId,
         agentId: this.config.agentId
@@ -764,11 +791,11 @@ export class DiscordBotHandler {
 
     // 使用最新的历史构造提示（可能经过了两次刷新）
     const finalFormattedHistory = formatConversationHistory(history);
-    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n请以【${this.roleConfig.name}】的视角，对上述对话进行回应。`;
+    const fullPrompt = `${finalFormattedHistory}\n\n---\n\n请以【${this.roleConfig.name}】的视角，对上述对话进行回应。针对某位发言人的具体观点时，用 @发言人名称 明确指向，让讨论有来有往。`;
 
     try {
       const response = await this.agent.reply(fullPrompt, {
-        userId: "system",
+        userId: `group:${channel.id}`,
         userName: this.roleConfig.name,
         channelId: channel.id,
         agentId: this.config.agentId

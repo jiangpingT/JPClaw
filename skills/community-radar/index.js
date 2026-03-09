@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   runCurl, todayString, ensureDir,
-  callAnthropic, sendToDiscord, sendToTelegram, BRAIN_DIR,
+  callAnthropic, sendToDiscord, sendToTelegram, sendToDmwork, BRAIN_DIR,
 } from "../_shared/proactive-utils.js";
 
 // ─── 配置 ────────────────────────────────────────────────────────────────────
@@ -239,6 +239,8 @@ export async function run(input) {
     const minEngagement = params.minEngagement || DEFAULT_MIN_ENGAGEMENT;
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
     const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
     const date = todayString();
 
     // ① 多源采集（传入 lookbackDays）
@@ -270,9 +272,16 @@ export async function run(input) {
       catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
     }
 
+    // ⑥ DMWork 推送
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, reportContent, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
     return JSON.stringify({
       ok: true, radarDate: date, period: `last ${lookbackDays} days`,
-      keywords, sources: sourceStats, reportPath, discordMessageIds, telegramMessageIds,
+      keywords, sources: sourceStats, reportPath, discordMessageIds, telegramMessageIds, dmworkStatus,
       message: `社区雷达已生成，共分析 ${posts.length} 条讨论，报告已推送到 Discord`,
     }, null, 2);
   } catch (error) {

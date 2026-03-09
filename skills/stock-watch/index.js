@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   runCurl, todayString, ensureDir,
-  callAnthropic, sendToDiscord, sendToTelegram, BRAIN_DIR,
+  callAnthropic, sendToDiscord, sendToTelegram, sendToDmwork, BRAIN_DIR,
 } from "../_shared/proactive-utils.js";
 
 // ─── 自选股配置 ──────────────────────────────────────────────────────────────
@@ -155,6 +155,7 @@ export async function run(input) {
     const watchlist      = params.watchlist      || DEFAULT_WATCHLIST;
     const channelId      = params.channelId      || process.env.DEFAULT_DISCORD_CHANNEL_ID;
     const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
     const date = todayString();
 
     // ① 并行拉汇率 + 各股行情（东方财富一站式提供价格/成交额/市值）
@@ -206,12 +207,19 @@ export async function run(input) {
       catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
     }
 
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, reportContent, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
     return JSON.stringify({
       ok: true, date, usdHkd,
       stocks: rows.length,
       reportPath,
       discordMessageIds,
       telegramMessageIds,
+      dmworkStatus,
     }, null, 2);
   } catch (error) {
     return JSON.stringify({ ok: false, error: error.message }, null, 2);

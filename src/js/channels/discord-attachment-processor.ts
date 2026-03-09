@@ -78,7 +78,7 @@ export class DiscordAttachmentProcessor {
   private readonly audioExts = [".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm"];
 
   /** 文档文件扩展名 */
-  private readonly documentExts = [".txt", ".md", ".pdf", ".json", ".csv", ".log", ".doc", ".docx"];
+  private readonly documentExts = [".txt", ".md", ".pdf", ".json", ".csv", ".log", ".doc", ".docx", ".pptx"];
 
   /** 图片文件扩展名 */
   private readonly imageExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"];

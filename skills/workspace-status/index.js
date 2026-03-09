@@ -5,7 +5,7 @@
  * 生成专为手机小屏优化的文本快照并推送到 Discord。
  */
 
-import { sendToDiscord, sendToTelegram, sh } from "../_shared/proactive-utils.js";
+import { sendToDiscord, sendToTelegram, sendToDmwork, sh } from "../_shared/proactive-utils.js";
 
 const DEFAULT_PROJECTS = [
   "/Users/mlamp/Workspace/JPClaw",
@@ -140,6 +140,7 @@ export async function run(input) {
     projects = DEFAULT_PROJECTS,
     channelId = DEFAULT_CHANNEL_ID,
     telegramChatId = DEFAULT_TELEGRAM_ID,
+    dmworkChannelId = process.env.DMWORK_DEFAULT_CHANNEL_ID || "",
     sendToChannel = true,
   } = params;
 
@@ -159,6 +160,9 @@ export async function run(input) {
   }
   if (sendToChannel && telegramChatId) {
     notifications.push(sendToTelegram(telegramChatId, report).catch((e) => `telegram error: ${e.message}`));
+  }
+  if (sendToChannel && dmworkChannelId) {
+    notifications.push(sendToDmwork(dmworkChannelId, report, 2).catch((e) => `dmwork error: ${e.message}`));
   }
 
   const notifyResults = await Promise.allSettled(notifications);

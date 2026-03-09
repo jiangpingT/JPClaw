@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   sh, safeExec, todayString, isPathSafe,
-  callAnthropicJSON, sendToDiscord, sendToTelegram,
+  callAnthropicJSON, sendToDiscord, sendToTelegram, sendToDmwork,
   loadProjectSuggestions, saveProjectSuggestions,
 } from "../_shared/proactive-utils.js";
 
@@ -597,6 +597,7 @@ export async function run(input) {
     const projects = params.projects || [process.cwd()];
     const channelId = params.channelId || DEFAULT_CHANNEL_ID;
     const telegramChatId = params.telegramChatId || process.env.DEFAULT_TELEGRAM_CHAT_ID;
+    const dmworkChannelId = params.dmworkChannelId || process.env.DMWORK_DEFAULT_CHANNEL_ID || "";
     const depth = params.depth || DEFAULT_DEPTH;
     const dryRun = params.dryRun ?? false;
     const includeBenchmark = params.includeBenchmark ?? false;
@@ -678,6 +679,13 @@ export async function run(input) {
       catch (e) { telegramMessageIds = [`error: ${e.message}`]; }
     }
 
+    // DMWork 推送
+    let dmworkStatus = "skipped";
+    if (dmworkChannelId) {
+      try { await sendToDmwork(dmworkChannelId, report, 2); dmworkStatus = "ok"; }
+      catch (e) { dmworkStatus = `error: ${e.message}`; }
+    }
+
     return JSON.stringify({
       ok: true, date, dryRun,
       projects: projectResults.map((p) => ({
@@ -685,7 +693,7 @@ export async function run(input) {
         actions: p.actions, issues: p.issues, prUrl: p.prUrl, error: p.error,
       })),
       weeklyInsight: weeklyInsight || undefined,
-      discordMessageIds, telegramMessageIds,
+      discordMessageIds, telegramMessageIds, dmworkStatus,
       message: dryRun
         ? "主动型程序员分析报告（DRY RUN）已推送到 Discord"
         : `主动型程序员报告已推送到 Discord 频道 ${channelId}`,

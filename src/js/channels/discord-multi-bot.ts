@@ -206,8 +206,9 @@ async function startSingleBot(
     let roleConfig = getRoleConfig(agentId);
 
     // 【修复】先尝试从持久化配置加载，只在没有保存值时才询问AI
-    if (roleConfig.participationStrategy === "ai_decide") {
-      // 【修复】先尝试从配置管理器加载已保存的延迟值
+    if (roleConfig.participationStrategy === "ai_decide" && roleConfig.observationDelay === 0) {
+      // 只有 DEFAULT_ROLES 未配置延迟（=0）时，才走缓存/AI-decide 路径
+      // 如果 DEFAULT_ROLES 已有非零值，直接使用，不读缓存（与 Telegram 行为一致）
       const configKey = `discord.bot.roles.${agentId}.observationDelay`;
       const savedDelay = globalConfig.getConfig<number>(configKey);
 
