@@ -45,9 +45,10 @@ interface ConversationEntry {
 }
 
 interface FileAttachment {
-  url:  string;
-  name: string;
-  type: number;
+  url:     string;
+  name:    string;
+  type:    number;
+  caption: string;  // 用户随文件发的说明文字（WuKongIM payload.caption）
 }
 
 // ─── 文件解析工具 ─────────────────────────────────────────────────────────────
@@ -58,7 +59,12 @@ function tryParseAttachment(text: string): FileAttachment | null {
     const obj = JSON.parse(text);
     if (typeof obj?.url === "string" &&
         (obj.url.startsWith("file/") || obj.url.includes("/preview/") || obj.url.includes("/upload/"))) {
-      return { url: obj.url, name: String(obj.name ?? "attachment"), type: Number(obj.type ?? 0) };
+      return {
+        url:     obj.url,
+        name:    String(obj.name ?? "attachment"),
+        type:    Number(obj.type ?? 0),
+        caption: String(obj.caption ?? ""),  // 用户随文件发的说明
+      };
     }
   } catch { /* 不是 JSON */ }
   return null;
@@ -175,8 +181,9 @@ export class DmworkBotHandler {
     log("info", "dmwork.dm_received", { from: msg.fromUID, preview: msg.text.slice(0, 50), hasFile: !!attachment });
     await this.showTyping(msg.fromUID, 1);
 
-    // 有附件时 msg.text 是 payload JSON，不传给 LLM
-    const question = await this.buildQuestion(attachment ? "" : msg.text, attachment);
+    // 有附件时 msg.text 是 payload JSON；优先用 caption 作为用户问题
+    const userText = attachment ? (attachment.caption || "") : msg.text;
+    const question = await this.buildQuestion(userText, attachment);
 
     const result = await this.agentV2.replyV2(question, {
       userId:    msg.fromUID,
@@ -196,8 +203,8 @@ export class DmworkBotHandler {
     ];
 
     // 去掉 @ 前缀，获取实际问题（没有 @ 则原文；仅 @ 无内容则用默认问候）
-    // 若是文件消息，msg.text 是 payload JSON，提取后为空字符串
-    let rawText = attachment ? "" : msg.text;
+    // 若是文件消息，优先用 caption；没有 caption 则空字符串
+    let rawText = attachment ? (attachment.caption || "") : msg.text;
     for (const p of mentionPatterns) {
       rawText = rawText.replaceAll(p, "").trim();
     }
@@ -409,7 +416,9 @@ export class DmworkBotHandler {
       return `${prefix}[文件附件: ${attachment.name}]\n\n${fileContent}`;
     }
 
-    return userText || `[用户上传了文件/图片: ${attachment.name}，内容读取失败，请稍后重试]`;
+    // 文件下载失败：如果有 caption，至少回答用户的问题；否则提示文件无法读取
+    if (userText) return userText;
+    return `[用户发送了文件 ${attachment.name}，文件内容暂时无法读取。如有问题，请直接用文字描述。]`;
   }
 
   // ── API 调用 ──────────────────────────────────────────────────────────────

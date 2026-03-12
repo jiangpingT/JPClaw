@@ -289,8 +289,19 @@ export class PiEngine implements ChatEngine {
         try {
           await agent.prompt(synthesisInstruction);
           const text = extractLastAssistantText(agent.state.messages);
-          this.saveSession(sessionKey, userId, channelId, agent.state.messages);
-          this.appendTranscript(sessionKey, agent.state.messages.slice(prevLen));
+          const finalMsg = agent.state.messages[agent.state.messages.length - 1];
+
+          // 关键：合成过程（synthesisInstruction + 中间 tool calls/results）是一次性的，
+          // 不应该留在 session 上下文里污染后续对话。
+          // 只保留 prevLen 以前的历史 + 最终 assistant 回答，丢弃合成指令和 toolResult 链。
+          (agent.state.messages as any[]).length = prevLen;
+          if (finalMsg && (finalMsg as any).role === "assistant" && text) {
+            agent.state.messages.push(finalMsg);
+            this.saveSession(sessionKey, userId, channelId, agent.state.messages);
+            this.appendTranscript(sessionKey, [finalMsg]);
+          } else {
+            this.saveSession(sessionKey, userId, channelId, agent.state.messages);
+          }
           return text.trim() || skillRouted;
         } catch (error) {
           log("error", "pi.skill_synthesis.failed", { error: String(error) });
@@ -534,7 +545,15 @@ export class PiEngine implements ChatEngine {
     }
 
     const previous = this.sessionStore.loadSession(sessionKey);
-    if (previous?.messages?.length) {
+    // 跨日会话重置：距上次活动超过 24 小时则开启全新会话（防止旧话题"附身"）
+    const SESSION_STALE_MS = 24 * 60 * 60 * 1000;
+    const isStale = previous?.updatedAt
+      ? Date.now() - new Date(previous.updatedAt).getTime() > SESSION_STALE_MS
+      : false;
+    if (isStale) {
+      log("info", "pi.session.stale_reset", { sessionKey, updatedAt: previous!.updatedAt });
+    }
+    if (previous?.messages?.length && !isStale) {
       const sanitized = sanitizeMessagesForModel(previous.messages);
       if (sanitized.length !== previous.messages.length) {
         log("warn", "pi.session.sanitized", {
